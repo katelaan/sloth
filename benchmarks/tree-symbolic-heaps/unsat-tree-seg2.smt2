@@ -1,0 +1,11 @@
+;; depth = 2
+(declare-const a sl.tree.loc)
+(declare-const b sl.tree.loc)
+(declare-const c sl.tree.loc)
+(declare-const d sl.tree.loc)
+(declare-const e sl.tree.loc)
+(declare-const f sl.tree.loc)
+(declare-const g sl.tree.loc)
+(declare-const h sl.tree.loc)
+(assert (sl.sepcon (sl.tree.seg2 a b c)
+                   (sl.tree.eq b c)))

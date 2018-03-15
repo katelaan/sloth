@@ -1,0 +1,5 @@
+(declare-const a sl.list.loc)
+(declare-const b sl.list.loc)
+(assert (and (sl.list a)
+             (sl.sepcon (sl.list.pointsto a b)
+                        (sl.list.pointsto b sl.list.null))))

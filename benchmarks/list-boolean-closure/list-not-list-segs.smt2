@@ -1,0 +1,5 @@
+(declare-const x sl.list.loc)
+(declare-const y sl.list.loc)
+(assert (sl.list x))
+(assert (not (sl.sepcon (sl.list.seg x y)
+                   (sl.list y))))
