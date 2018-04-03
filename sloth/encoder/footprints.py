@@ -17,12 +17,12 @@ class FootprintManager(object):
     >>> ls, tree = sl.list.struct, sl.tree.struct
     >>> m = FootprintManager([ls, tree], 'x')
     >>> m.get_fp(ls, "next")
-    'LXN'
+    'XN'
     >>> m.get_fp(tree, "left")
-    'TXL'
+    'XL'
     >>> mr = m.follow_pointer(tree, "right")
     >>> (mr.get_fp(ls, "next"), mr.get_fp(tree, "left"), mr.get_fp(tree, "right"))
-    ('LXN', 'TXRr', 'TXRr')
+    ('XN', 'XRr', 'XRr')
 
     """
 

@@ -146,3 +146,16 @@ def lineify(string, split_at, max_len = 80):
     if curr:
         lines.append(curr[len(split_at):])
     return "\n".join(lines)
+
+def unique_repr(obj):
+    if isinstance(obj, dict):
+        sorted_dict_reprs = sorted(unique_repr(k) + ': ' + unique_repr(v)
+                                   for k,v in obj.items())
+        return '{' + ', '.join(sorted_dict_reprs) + '}'
+    if isinstance(obj, set):
+        return '{' + ', '.join(sorted(unique_repr(elem) for elem in obj)) + '}'
+    else:
+        return repr(obj)
+
+def print_unique_repr(obj):
+    print(unique_repr(obj))

@@ -77,15 +77,9 @@ def unrolling_iter(struct, depth, force_depth, root_prefix, data_pred_field = No
     >>> tree = sl.tree.struct
     >>> x = sl.tree.loc("x")
     >>> list(unrolling_iter(tree, 2, True, x)) # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
-    [sl.sepcon(sl.tree.pointsto(x, xl, xr),
-          sl.sepcon(sl.tree.pointsto(xl, xll, xlr),
-                    sl.sepcon(sl.tree.eq(xll, sl.tree.null),
-                              sl.sepcon(...))))]
+    [(sl.sepcon(...)), [xl == sl.tree.left(x), ...])]
     >>> list(unrolling_iter(tree, 2, True, x, "left", sl.alpha > 2 * sl.beta)) # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
-    [And(sl.sepcon(sl.tree.pointsto(x, xl, xr),
-                  sl.sepcon(sl.tree.data(x, xd),
-                            ...)),
-        xd > 2*xld)]
+    [(And(sl.sepcon(...)), xd > 2*xld), [xl == sl.tree.left(x), ..., xrd == sl.tree.data(xr)])]
 
 
     """
@@ -157,16 +151,11 @@ def all_unrollings_as_lists(struct, depth, force_depth, root_prefix,
     Trees with `data_pred`
 
     >>> list(all_unrollings_as_lists(tree, 2, True, x, None, sl.alpha == 42)) # doctest: +NORMALIZE_WHITESPACE
-    [UnrolledConstraint([sl.tree.pointsto(x, xl, xr), sl.tree.data(x, xd),
-                         sl.tree.pointsto(xl, xll, xlr), sl.tree.data(xl, xld),
-                         sl.tree.eq(xll, sl.tree.null), sl.tree.eq(xlr, sl.tree.null),
-                         sl.tree.pointsto(xr, xrl, xrr), sl.tree.data(xr, xrd),
-                         sl.tree.eq(xrl, sl.tree.null), sl.tree.eq(xrr, sl.tree.null)],
-                        [xd == 42, xld == 42, xrd == 42])]
+    [UnrolledConstraint([...], [xd == 42, xld == 42, xrd == 42], [...])]
     >>> list(all_unrollings_as_lists(tree, 2, True, x, "left", sl.alpha > sl.beta))
-    [UnrolledConstraint([...], [xd > xld])]
+    [UnrolledConstraint([...], [xd > xld], [...])]
     >>> list(all_unrollings_as_lists(tree, 2, True, x, "right", sl.alpha > (sl.beta + 17)))
-    [UnrolledConstraint([...], [xd > xrd + 17])]
+    [UnrolledConstraint([...], [xd > xrd + 17], [...])]
 
     """
 

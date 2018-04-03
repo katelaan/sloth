@@ -5,10 +5,9 @@ bookkeeping.
 
 .. testsetup::
 
-   from sloth.encoder.encoder import encode
+   from sloth.encoder.encoder import encode_ast
    from sloth.encoder.astbuilder import processed_ast
    from sloth.encoder.slast import *
-
 
 """
 
@@ -60,14 +59,8 @@ class PointsTo(SlAst):
     """Representation of sl.struct.pointsto(src, trg_0,...trg_k).
 
     >>> t = processed_ast(sts, sl.tree.pointsto("a", "b", "c"))
-    >>> encode(t)
-    And(And(TA...L == Store(K(Int, False), a, True),
-            TA...R == Store(K(Int, False), a, True)),
-        And(Not(a == sl.tree.null),
-            b == sl.tree.left(a),
-            c == sl.tree.right(a)))
-    >>> t.constants()
-    consts(sl.tree.fp={TA...L : SET(Int),TA...R : SET(Int)}, sl.tree.loc={a,b,c})
+    >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
+    Encoding[...]
 
     """
 
@@ -99,17 +92,11 @@ class PointsToSingleField(SlAst):
     """Representation of sl.struct.fld(src, trg).
 
     >>> t = processed_ast(sts, sl.list.next("a", "b"))
-    >>> encode(t)
-    And(LA...N == Store(K(Int, False), a, True),
-        And(b == sl.list.next(a), Not(a == sl.list.null)))
-    >>> t.constants()
-    consts(sl.list.fp={LA...N : SET(Int)}, sl.list.loc={a,b})
+    >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
+    Encoding[...]
     >>> t = processed_ast(sts, sl.list.data("a", "b"))
-    >>> encode(t);
-    And(LA...D == Store(K(Int, False), a, True),
-        And(b == sl.list.data(a), Not(a == sl.list.null)))
-    >>> t.constants()
-    consts(data={b}, sl.list.fp={LA...D : SET(Int)}, sl.list.loc={a})
+    >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
+    Encoding[...]
 
     """
 
@@ -233,10 +220,8 @@ class DataAtom(SlAst):
 
     >>> a = Int("a")
     >>> t = processed_ast(sts, a < 42)
-    >>> encode(t)
-    a < 42
-    >>> t.constants()
-    consts(data={a})
+    >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
+    Encoding[...]
 
     """
 
@@ -301,13 +286,8 @@ class SepCon(BinOp):
 
     >>> expr = sl.sepcon(sl.list.pointsto("a", "b"), sl.list.pointsto("b", "c"))
     >>> t = processed_ast(sts, expr)
-    >>> encode(t) # doctest: +ELLIPSIS
-    And(And(LA...N == Store(K(Int, False), a, True),
-            LB...N == Store(K(Int, False), b, True),
-            LS...__N == Map(or, LA...N, LB...N)),
-        And(And(Not(a == sl.list.null), b == sl.list.next(a)),
-            And(Not(b == sl.list.null), c == sl.list.next(b)),
-            K(Int, False) == Map(and, LA...N, LB...N)))
+    >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
+    Encoding[...]
 
     """
 

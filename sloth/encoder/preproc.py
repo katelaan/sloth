@@ -32,11 +32,11 @@ def assign_ids(ast):
 
     >>> t = ast(sts, sl.sepcon(sl.list("x"), sl.list("x")))
     >>> SlAst.id_ = [0]
-    >>> t.assign_ids()
+    >>> assign_ids(t)
     >>> t[0], t[0].id_
-    (PredCall('sl.list', None, None, x), 1)
+    (PredCall('sl.list', None, None, x), 0)
     >>> t[1], t[1].id_
-    (PredCall('sl.list', None, None, x), 2)
+    (PredCall('sl.list', None, None, x), 1)
 
     """
     def f_either(obj, *child_results):

@@ -78,7 +78,6 @@ Found model for unfolding []
 False
 
 Predicate calls are resolved via unfolding. List predicates:
-
 >>> m = solve(sl.list(h), 1) # doctest: +ELLIPSIS
 Found model for unfolding [(h, 0)]
 >>> eq(m.val_of(h), m.val_of(sl.list.null))
@@ -133,13 +132,14 @@ True
 >>> m = solve(sl.sepcon(sl.list.neq("a", sl.list.null), sl.list.dpred.next(sl.alpha < sl.beta, "a")), 1)
 Found model for unfolding [(a, 1)]
 >>> x, y, z, w = sl.list.locs("x", "y", "z", "w")
->>> expr = And(sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(y,z)), sl.list.dpred.next(sl.alpha < sl.beta, x))
+>>> d, e, f = Ints("d e f")
+>>> expr = And(sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(y,z), sl.list.data(x,d), sl.list.data(y,e)), sl.list.dpred.next(sl.alpha < sl.beta, x))
 >>> m = solve(expr, 3)
 Found model for unfolding [(x, 2)]
 >>> data_fn = m.struct_model(sl.list.struct).heap_fn("data")
 >>> z3_to_py(data_fn(m.val_of(x))) < z3_to_py(data_fn(m.val_of(y)))
 True
->>> expr = And(sl.sepcon(sl.list.pointsto(x, y), sl.sepcon(sl.list.pointsto(y, z), sl.list.pointsto(z, w))), sl.list.dpred.next(sl.alpha < sl.beta, x))
+>>> expr = And(sl.sepcon(sl.list.pointsto(x, y), sl.sepcon(sl.list.pointsto(y, z), sl.list.pointsto(z, w), sl.list.data(x, d), sl.list.data(y, e), sl.list.data(z, f))), sl.list.dpred.next(sl.alpha < sl.beta, x))
 >>> m = solve(expr, 3)
 Found model for unfolding [(x, 3)]
 >>> data_fn = m.struct_model(sl.list.struct).heap_fn("data")
@@ -147,7 +147,7 @@ Found model for unfolding [(x, 3)]
 True
 >>> z3_to_py(data_fn(m.val_of(y))) < z3_to_py(data_fn(m.val_of(z)))
 True
->>> expr = And(sl.tree.dpred.right(sl.alpha > sl.beta, "t"), symbols.SepCon([sl.tree.pointsto(t, u, v), sl.tree.pointsto(u, sl.tree.null, sl.tree.null), sl.tree.pointsto(v, sl.tree.null, sl.tree.null)]))
+>>> expr = And(sl.tree.dpred.right(sl.alpha > sl.beta, "t"), sl.sepcon(sl.tree.pointsto(t, u, v), sl.tree.data(t, d), sl.tree.pointsto(u, sl.tree.null, sl.tree.null), sl.tree.data(u, e), sl.tree.pointsto(v, sl.tree.null, sl.tree.null), sl.tree.data(v, f)))
 >>> m = solve(expr, 3)
 Found model for unfolding [(t, 2)]
 
@@ -339,7 +339,7 @@ def apply_strategy_to_ast(ast, strategy, print_result = False):
         if INFO_PRINT:
             logger.info("Trying unfolding {}".format(unfolding_dict))
         # Assemble encoding based on unfolding
-        encoding = encoder.encode(ast, unfolding_dict)
+        encoding = encoder.encode_ast(ast, unfolding_dict)
         prev_encoding = encoding
         if strategy_debug_enabled():
             logger.debug("STRATEGY: Full encoding:\n{!r}".format(encoding))

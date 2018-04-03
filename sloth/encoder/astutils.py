@@ -5,6 +5,7 @@ the encoding.
 
   from sloth import *
   from sloth.encoder.astutils import *
+  from sloth.utils import utils
 
 """
 
@@ -16,10 +17,19 @@ def fold(f_inner, f_leaf, ast):
     if ast.is_leaf():
         return f_leaf(ast)
     else:
+        # List rather than genexpr to force evaluation
         child_results = [fold(f_inner, f_leaf, child) for child in ast]
         return f_inner(ast, child_results)
 
 def consts_by_struct(ast, structs):
+    """Return a map from `structs` to the set of constants per struct.
+
+    >>> t = processed_ast(sts, sl.tree.pointsto("a", "b", "c"))
+    >>> utils.print_unique_repr(consts_by_struct(t, sts))
+    {Struct(sl.dlist): {}, Struct(sl.list): {}, Struct(sl.ptree): {}, Struct(sl.tree): {a, b, c}}
+
+    """
+
     d_aux = {s : set() for s in structs}
     def f_inner(obj, _):
         # All variables are in the leaves

@@ -73,7 +73,7 @@ def apply_unfolding(call, unfolding_dict):
         unrolling_ast = astbuilder.processed_ast([call.struct], constraint)
         if encoder_debug_enabled():
             logger.debug("Built the AST")
-        unrolling_encoding = encode(unrolling_ast, unfolding_dict = {})
+        unrolling_encoding = encode_ast(unrolling_ast, unfolding_dict = {})
         assert(unrolling_encoding.has_split())
         unrolling_split = unrolling_encoding.split
         if encoder_debug_enabled():
@@ -226,7 +226,7 @@ class Encoding(object):
         else:
             return self.split.merged()
 
-def encode(ast, unfolding_dict):
+def encode_ast(ast, unfolding_dict):
     inner_dict = {
         SlAnd : encode_and,
         SlOr : encode_or,
