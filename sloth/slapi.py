@@ -17,6 +17,7 @@ import functools
 import z3
 
 from . import consts, config
+from .utils import utils
 from .backend import symbols, generic
 
 def _constify(struct, term):
@@ -75,7 +76,7 @@ class SlApi:
     All these calls build standard :class:`z3.ExprRef` instances, so
     they can be freely combined with calls to the z3 API. For example:
 
-    >>> a,b = sl.list.locs("a", "b")
+    >>> a, b = sl.list.locs("a b")
     >>> z3.And(z3.Not(b == sl.list.null), sl.list.pointsto(a,b))
     And(Not(b == sl.list.null), sl.list.pointsto(a, b))
 
@@ -158,12 +159,18 @@ class StructApi:
     def locs(self, *args):
         """Returns a tuple of location constants for the given arguments.
 
+        Can be invoked both with a single space-separated string and
+        with one parameter per location.
+
         >>> sl = SlApi(LambdaBackend.make_structs())
         >>> sl.list.locs("a", "b", "c")
-        (a, b, c)
+        [a, b, c]
+        >>> sl.list.locs("a b c")
+        [a, b, c]
 
         """
-        return tuple(_constify(self.struct, arg) for arg in args)
+        args = utils.splitarg_or_varargs(*args)
+        return [_constify(self.struct, arg) for arg in args]
 
     def fp(self, arg):
         """Returns a footprint set for the given argument.

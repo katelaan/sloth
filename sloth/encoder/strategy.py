@@ -21,7 +21,7 @@ Model [
   ]
   Data [undefined]
 ]
->>> a, b = sl.list.locs("a", "b")
+>>> a, b = sl.list.locs("a b")
 >>> m = solve(sl.list.neq(a, b), 0)
 Found model for unfolding []
 >>> eq(m.val_of(a), m.val_of(b))
@@ -45,7 +45,7 @@ If we use classical conjunction, the footprints of the arguments must
 coincide. In the following simple example, this will force the
 interpretation of h and i to coincide, too.
 
->>> h, i, j = sl.list.locs("h", "i", "j")
+>>> h, i, j = sl.list.locs("h i j")
 >>> m = solve(And(sl.list.next(h,i), sl.list.next(i,j)), 0)
 Found model for unfolding []
 >>> eq(m.val_of(h), m.val_of(i))
@@ -104,7 +104,7 @@ Tree predicates:
 
 >>> _ = solve(sl.tree("t"), 1)
 Found model for unfolding [(t, 0)]
->>> t, u, v = sl.tree.locs("t", "u", "v")
+>>> t, u, v = sl.tree.locs("t u v")
 >>> m = solve(sl.tree.seg2(t, u, v), 1)
 Found model for unfolding [(t, 1)]
 >>> left_fn, right_fn = map(m.struct_model(sl.tree.struct).heap_fn, ("left", "right"))
@@ -131,7 +131,7 @@ Found model for unfolding [(a, 1)]
 True
 >>> m = solve(sl.sepcon(sl.list.neq("a", sl.list.null), sl.list.dpred.next(sl.alpha < sl.beta, "a")), 1)
 Found model for unfolding [(a, 1)]
->>> x, y, z, w = sl.list.locs("x", "y", "z", "w")
+>>> x, y, z, w = sl.list.locs("x y z w")
 >>> d, e, f = Ints("d e f")
 >>> expr = And(sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(y,z), sl.list.data(x,d), sl.list.data(y,e)), sl.list.dpred.next(sl.alpha < sl.beta, x))
 >>> m = solve(expr, 3)

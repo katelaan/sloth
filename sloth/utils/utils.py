@@ -148,6 +148,14 @@ def lineify(string, split_at, max_len = 80):
     return "\n".join(lines)
 
 def unique_repr(obj):
+    """Return a deterministic representation of the given object.
+
+    >>> unique_repr({'b','a','ab','c'})
+    "{'a', 'ab', 'b', 'c'}"
+    >>> unique_repr({3: {5,4}, 8: {3,6,0}})
+    '{3: {4, 5}, 8: {0, 3, 6}}'
+
+    """
     if isinstance(obj, dict):
         sorted_dict_reprs = sorted(unique_repr(k) + ': ' + unique_repr(v)
                                    for k,v in obj.items())
@@ -158,4 +166,25 @@ def unique_repr(obj):
         return repr(obj)
 
 def print_unique_repr(obj):
+    """Print a deterministic representation of the given object.
+
+    >>> print_unique_repr({8: {3,6,0}, 3: {5,4}})
+    {3: {4, 5}, 8: {0, 3, 6}}
+
+    """
     print(unique_repr(obj))
+
+def splitarg_or_varargs(*args):
+    """Construct a list of strings either from a single space-separated
+string or from a variable number of string arguments.
+
+    >>> splitarg_or_varargs('x y z')
+    ['x', 'y', 'z']
+    >>> splitarg_or_varargs('x', 'y', 'z')
+    ['x', 'y', 'z']
+
+    """
+    if len(args) == 1:
+        return args[0].split()
+    else:
+        return list(args)

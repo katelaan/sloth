@@ -109,7 +109,7 @@ def all_unrollings_as_lists(struct, depth, force_depth, root_prefix,
     in the correct order.
 
     >>> tree = sl.tree.struct
-    >>> x, y, z = sl.tree.locs("x", "y", "z")
+    >>> x, y, z = sl.tree.locs("x y z")
     >>> list(all_unrollings_as_lists(tree, 0, False, x))
     [UnrolledConstraint([sl.tree.eq(x, sl.tree.null)], [], [])]
     >>> list(all_unrollings_as_lists(tree, 1, False, x))

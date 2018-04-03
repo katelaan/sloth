@@ -17,7 +17,7 @@ class ConstantSet:
     >>> c.add_data_consts(*Ints("a b"))
     >>> c
     consts(data={a,b})
-    >>> c.add_loc_consts(sl.list.struct, *sl.list.locs("x", "y", "z"))
+    >>> c.add_loc_consts(sl.list.struct, *sl.list.locs("x y z"))
     >>> c.add_fp_consts(sl.tree.struct, sl.list.fp("X"))
     >>> c
     consts(

@@ -157,7 +157,7 @@ def partial_leaf_substitution(expr, substitution_dict):
     If a const/var is not in `substitution_dict.keys()`, it remains
     unchanged.
 
-    >>> a, b, c = sl.list.locs("a", "b", "c")
+    >>> a, b, c = sl.list.locs("a b c")
     >>> subst = {b : c}
     >>> partial_leaf_substitution(sl.sepcon(sl.list("a"), sl.list("b")), subst)
     sl.sepcon(sl.list(a), sl.list(c))
