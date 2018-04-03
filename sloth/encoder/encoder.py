@@ -28,7 +28,7 @@ def unfold_calls(ast, unfolding_dict):
 
     return astutils.fold(f_inner, f_leaf, ast)
 
-def apply_unfolding(call, unfolding_dict):
+def apply_unfolding(call, unfolding_dict, is_under_negation):
     if encoder_debug_enabled():
         logger.debug("UNFOLDING: Will unfold {!r}".format(call))
 
@@ -116,7 +116,7 @@ def apply_unfolding(call, unfolding_dict):
             logger.debug("Encoding:\n{}".format(unrolling_encoding))
             logger.debug("Constants:\n{}".format(consts))
 
-    if call.is_under_negation:
+    if is_under_negation:
         for i, e in enumerate(encodings):
             #logger.debug("Option #{} prior to negation:\n{}".format(i, e))
             e.negate()
@@ -238,34 +238,33 @@ def encode_ast(ast, unfolding_dict):
         PointsToSingleField : encode_pto_fld,
         SpatialEq : encode_eq,
         DataAtom : encode_data_atom,
+        PredCall : functools.partial(encode_call, unfolding_dict)
     }
-    # Update dictionary with current unfolding information
-    # Note: This only works because we have a local copy of leaf_dict
-    # Otherwise the calls to encode in the unfolding would override
-    # the unfolding dictionary!
-    call_encoder = functools.partial(encode_call, unfolding_dict)
-    leaf_dict[PredCall] = call_encoder
 
-    def f_inner(obj, child_results):
-        assert(obj.state >= EncoderState.PreprocFinished)
-        for c in child_results:
-            assert(isinstance(c, Encoding))
-        enc = inner_dict[type(obj)](obj, *child_results)
-        # Assign constants to encoding
-        cs = _inner_constants(obj, enc.fps, *child_results)
-        enc.constants = cs
-        return enc
+    next_id = 0
 
-    def f_leaf(obj):
-        assert(obj.state >= EncoderState.PreprocFinished)
-        enc = leaf_dict[type(obj)](obj)
-        # Assign constants to encoding
-        if not obj.is_pred_call():
-            cs = _leaf_constants(obj, enc.fps)
+    def walk_ast(node, is_under_negation = False):
+        if node.is_leaf():
+            enc = leaf_dict[type(node)](node, is_under_negation)
+            # Assign constants to encoding
+            if not node.is_pred_call():
+                cs = _leaf_constants(node, enc.fps)
+                enc.constants = cs
+            return enc
+        else:
+            if isinstance(node, SlNot):
+                child_under_negation = not is_under_negation
+            else:
+                child_under_negation = is_under_negation
+            child_results = [walk_ast(child, child_under_negation)
+                             for child in node]
+            enc = inner_dict[type(node)](node, *child_results, is_under_negation)
+            # Assign constants to encoding
+            cs = _inner_constants(node, enc.fps, *child_results)
             enc.constants = cs
-        return enc
+            return enc
 
-    return astutils.fold(f_inner, f_leaf, ast)
+    return walk_ast(ast)
 
 def _leaf_constants(obj, fps):
     assert(obj.state >= EncoderState.EncodingAssigned)
@@ -319,42 +318,30 @@ def encoding_from_full_expr(ast, full, fps, is_negated):
     ast._state_transition(EncoderState.PreprocFinished, EncoderState.EncodingAssigned)
     return Encoding(ast.to_sl_expr(), combined = full, fps = fps, is_negated = is_negated)
 
-def encode_pto(pto):
+def encode_pto(pto, is_under_negation):
     # fps = { (pto.struct, fld) : make_fp(pto.struct, fld, str(pto.src) + str(pto.id_) + ".")
     #         for fld in pto.struct.points_to_fields }
     fps = { (pto.struct, fld) : make_fp(pto.struct, fld, str(pto.src) + ".")
             for fld in pto.struct.points_to_fields }
     split_encoding = splitprims.points_to(pto.struct, pto.src, pto.trg, fps.values())
 
-    if pto.is_under_negation:
+    if is_under_negation:
         split_encoding.negate()
-    return encoding_from_split_expr(pto, split_encoding, fps, pto.is_under_negation)
+    return encoding_from_split_expr(pto, split_encoding, fps, is_under_negation)
 
-def encode_pto_fld(pto):
+def encode_pto_fld(pto, is_under_negation):
     #fp = make_fp(pto.struct, pto.fld, str(pto.src) + str(pto.id_) + ".")
     fp = make_fp(pto.struct, pto.fld, str(pto.src) + ".")
     fps = { (pto.struct, pto.fld) : fp }
     split_encoding = splitprims.fld_points_to(
         pto.struct, pto.fld, pto.src, pto.trg, fp
     )
-    if pto.is_under_negation:
+    if is_under_negation:
         split_encoding.negate()
-    return encoding_from_split_expr(pto, split_encoding, fps, pto.is_under_negation)
+    return encoding_from_split_expr(pto, split_encoding, fps, is_under_negation)
 
-USE_DFS_ENCODING = True
-
-def encode_call(unfolding_dict, call):
-    if USE_DFS_ENCODING:
-        return encode_call_dfs(unfolding_dict, call)
-    else:
-        return encode_call_by_unfolding(unfolding_dict, call)
-
-
-def encode_call_dfs(unfolding_dict, call):
-    pass
-
-def encode_call(unfolding_dict, call):
-    fps, consts, split_unfolding = apply_unfolding(call, unfolding_dict)
+def encode_call(unfolding_dict, call, is_under_negation):
+    fps, consts, split_unfolding = apply_unfolding(call, unfolding_dict, is_under_negation)
     assert(call.state >= EncoderState.UnfoldingComputed)
     if call.pred is not None:
         # TODO: [Data consts] Should we manually add data constants here? This should force their inclusion in the model even at depth 0
@@ -363,31 +350,31 @@ def encode_call(unfolding_dict, call):
     if encoder_debug_enabled():
         logger.debug("Overall encoding of {}:\n{}".format(call.to_sl_expr(), split_unfolding))
 
-    enc = encoding_from_split_expr(call, split_unfolding, fps, call.is_under_negation)
+    enc = encoding_from_split_expr(call, split_unfolding, fps, is_under_negation)
     enc.constants = consts
     return enc
 
-def encode_eq(eq):
+def encode_eq(eq, is_under_negation):
     fps = {} # => Behave like emp!
     split_encoding = splitprims.SplitEncoding(
         structure = eq.left == eq.right,
         footprint = None
     )
-    if not (eq.negated == eq.is_under_negation):
+    if not (eq.negated == is_under_negation):
         split_encoding.negate()
-    return encoding_from_split_expr(eq, split_encoding, fps, eq.is_under_negation)
+    return encoding_from_split_expr(eq, split_encoding, fps, is_under_negation)
 
-def encode_data_atom(da):
+def encode_data_atom(da, is_under_negation):
     fps = {}
     split_encoding = splitprims.SplitEncoding(
         structure = da.atom,
         footprint = None
     )
-    if da.is_under_negation:
+    if is_under_negation:
         split_encoding.negate()
-    return encoding_from_split_expr(da, split_encoding, fps, da.is_under_negation)
+    return encoding_from_split_expr(da, split_encoding, fps, is_under_negation)
 
-def encode_sepcon(sc, left_enc, right_enc):
+def encode_sepcon(sc, left_enc, right_enc, is_under_negation):
     fps = make_global_fps(sc, left_enc, right_enc)
     # TODO: Avoid introduction of True disjointness constraint in case there is no sharing between children
     disjointness = symbols.LAnd(splitprims.disjointness(left_enc.fps, right_enc.fps))
@@ -395,7 +382,7 @@ def encode_sepcon(sc, left_enc, right_enc):
     #logger.debug("SepCon disjointness: {}".format(disjointness))
     #logger.debug("SepCon union: {}".format(union))
 
-    if sc.is_under_negation:
+    if is_under_negation:
         # A negated * is true in either of the following cases;
         # 1.) The left constraint is falsified
         # 2.) The right constraint is falsified
@@ -436,7 +423,7 @@ def encode_sepcon(sc, left_enc, right_enc):
     split_encoding = splitprims.SplitEncoding(structure, footprint)
     if encoder_debug_enabled():
         logger.debug("SUMMARIZING SEPCON {}: encoded as follows:".format(sc.to_sl_expr()))
-        logger.debug("Under negation: {}".format(sc.is_under_negation))
+        logger.debug("Under negation: {}".format(is_under_negation))
         logger.debug("Global fps: {}".format(to_fp_dict(fps)))
         logger.debug("Left fps: {}".format(to_fp_dict(left_enc.fps)))
         logger.debug("Right fps: {}".format(to_fp_dict(right_enc.fps)))
@@ -445,13 +432,13 @@ def encode_sepcon(sc, left_enc, right_enc):
         logger.debug("Full structure: {}".format(structure))
         logger.debug("END SEPCON")
 
-    enc = encoding_from_split_expr(sc, split_encoding, fps, sc.is_under_negation)
+    enc = encoding_from_split_expr(sc, split_encoding, fps, is_under_negation)
     enc.child_encodings = [left_enc, right_enc]
     return enc
 
 
-def encode_and(conj, left_enc, right_enc):
-    if conj.is_under_negation:
+def encode_and(conj, left_enc, right_enc, is_under_negation):
+    if is_under_negation:
         msg = "Currently only support for formulas in NNF"
         raise utils.SlothException(msg)
 
@@ -484,8 +471,8 @@ def encode_and(conj, left_enc, right_enc):
     enc.child_encodings = [left_enc, right_enc]
     return enc
 
-def encode_or(disj, left_enc, right_enc):
-    if disj.is_under_negation:
+def encode_or(disj, left_enc, right_enc, is_under_negation):
+    if is_under_negation:
         msg = "Currently only support for formulas in NNF"
         raise utils.SlothException()
 
@@ -498,8 +485,8 @@ def encode_or(disj, left_enc, right_enc):
     enc.child_encodings = [left_enc, right_enc]
     return enc
 
-def encode_not(neg, arg_enc):
-    if neg.is_under_negation:
+def encode_not(neg, arg_enc, is_under_negation):
+    if is_under_negation:
         msg = "Currently no support for nested negation"
         raise utils.SlothException(msg)
 
