@@ -14,7 +14,7 @@ class ResultState:
     def is_success(self):
         return self.model is not None
 
-class EncoderState(object):
+class EncoderState:
     """For bookkeeping reasons, :class:`SlAst` objects have evolving
 internal state.
 

@@ -352,7 +352,7 @@ def apply_strategy_to_ast(ast, strategy, print_result = False):
         if not solved:
             unfolding_dict = next(strategy, undefined)
     if solved:
-        if True:
+        if print_result:
             # Guarantee stable output for doctests
             standardized = sorted(unfolding_dict.items(),
                                   key = lambda x : str(x[0]))
@@ -388,25 +388,37 @@ def unfold_uniformly_to_depth(pred_calls, max_depth):
 
     >>> expr = sl.sepcon(sl.tree("a"), sl.list("b"))
     >>> calls = pred_calls(processed_ast(sts, expr))
-    >>> for d in unfold_uniformly_to_depth(calls, 2): print(sorted(map(str,d.items())))
-    ['(a, 0)', '(b, 0)']
-    ['(a, 1)', '(b, 1)']
-    ['(a, 2)', '(b, 2)']
+    >>> for d in unfold_uniformly_to_depth(calls, 2): utils.print_unique_repr(d)
+    {a: 0, b: 0}
+    {a: 1, b: 1}
+    {a: 2, b: 2}
 
     """
     roots = get_roots(pred_calls)
     for i in range(max_depth + 1):
         yield dict(utils.zip_with_const(roots, i))
 
+def unfold_uniformly_to_exact_depth(pred_calls, depth):
+    """Unfolding strategy that always increases all depths by one.
+
+    >>> expr = sl.sepcon(sl.tree("a"), sl.list("b"))
+    >>> calls = pred_calls(processed_ast(sts, expr))
+    >>> utils.print_unique_repr(unfold_uniformly_to_exact_depth(calls, 2))
+    {a: 2, b: 2}
+
+    """
+    roots = get_roots(pred_calls)
+    return dict(utils.zip_with_const(roots, depth))
+
 def increase_unfolding_depth_incrementally(pred_calls, max_depth):
     """Unfolding strategy that increases depths one by one, starting with lists.
 
     >>> expr = sl.sepcon(sl.tree("a"), sl.list("b"))
     >>> calls = pred_calls(processed_ast(sts, expr))
-    >>> for d in increase_unfolding_depth_incrementally(calls, 1): print(sorted(map(str,d.items())))
-    ['(a, 0)', '(b, 0)']
-    ['(a, 0)', '(b, 1)']
-    ['(a, 1)', '(b, 1)']
+    >>> for d in increase_unfolding_depth_incrementally(calls, 1): utils.print_unique_repr(d)
+    {a: 0, b: 0}
+    {a: 0, b: 1}
+    {a: 1, b: 1}
 
     """
 

@@ -7,7 +7,7 @@ from . import generic
 class UninterpretedSort(generic.SlSort):
     def __init__(self, name):
         assert(isinstance(name, str))
-        super(UninterpretedSort, self).__init__(z3.DeclareSort(name), QuantifiedSet)
+        super().__init__(z3.DeclareSort(name), QuantifiedSet)
 
     def __str__(self):
         return str(self.ref)
@@ -27,7 +27,7 @@ class UninterpretedSort(generic.SlSort):
 class QuantifiedSet(generic.Set):
     def __init__(self, ref, elem_sort):
         logger.debug("Creating new quantified set from {}".format(ref))
-        super(QuantifiedSet, self).__init__(ref, elem_sort)
+        super().__init__(ref, elem_sort)
 
     def is_empty(self):
         x = generic.const("_x_", self.elem_sort.ref)
@@ -76,7 +76,7 @@ class QuantifiedSet(generic.Set):
 class DeclaredSortLocInterpretation(generic.LocInterpretation):
 
     def __init__(self, struct, const_registry, z3_model):
-        super(DeclaredSortLocInterpretation, self).__init__(struct, const_registry, z3_model)
+        super().__init__(struct, const_registry, z3_model)
         universe = z3_model.get_universe(struct.sort.ref)
         if universe is not None:
             logger.info("Universe for {} is {}".format(struct.sort.ref, universe))
@@ -84,4 +84,4 @@ class DeclaredSortLocInterpretation(generic.LocInterpretation):
         self._init_node_labeling()
 
     def __repr__(self):
-        return "SortInterpretation("+super(DeclaredSortLocInterpretation, self).__repr__()+")"
+        return "SortInterpretation("+super().__repr__()+")"

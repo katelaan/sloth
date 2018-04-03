@@ -11,7 +11,7 @@ def const(name, sort):
 def array(name, ix_sort, cont_sort):
     return z3.Array(name, ix_sort, cont_sort)
 
-class SlSort(object):
+class SlSort:
     """Representation of a separation logic sort.
 
     Depending on the backend, this could be either an uninterpreted sort or a
@@ -44,7 +44,7 @@ class SlSort(object):
         """Return a constant of this sort of the given string name."""
         return const(elem, self.ref)
 
-class Set(object):
+class Set:
     """Representation of a set of locations / footprint."""
 
     def __init__(self, ref, elem_sort):
@@ -106,7 +106,7 @@ class Set(object):
         raise NotImplementedError("")
 
 
-class SetSort(object):
+class SetSort:
     """A separation logic set / footprint sort associated with a
     :class:`backend.generic.SlSort`
 
@@ -127,7 +127,7 @@ class SetSort(object):
         set_ref = array(name, self.elem_sort.ref, z3.BoolSort())
         return self.set_class(set_ref, self.elem_sort)
 
-class LocInterpretation(object):
+class LocInterpretation:
     """Interpretation of a location sort in a z3 model.
 
     Represents the interpretation of the location sort itself as well
@@ -216,7 +216,7 @@ class LocInterpretation(object):
         self.labeling = labeling
 
 
-class ConstRegistry(object):
+class ConstRegistry:
     """Cache for keeping track of constants introduced in an encoding.
 
     Use case: Add all constants that appear in an encoding to a

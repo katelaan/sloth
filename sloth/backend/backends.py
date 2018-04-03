@@ -3,7 +3,7 @@ import z3
 from .. import consts
 from . import quantified, lambdas, symbols
 
-class Backend(object):
+class Backend:
 
     def __repr__(self):
         return self.description()

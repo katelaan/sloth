@@ -181,7 +181,7 @@ def apply_unfolding(call, unfolding_dict):
         logger.debug("Done unfolding")
     return (call_fps, consts, joined_split)
 
-class Encoding(object):
+class Encoding:
     def __init__(self, sl_expr, combined = None, split = None, fps = None, constants = None, is_negated = False, child_encodings = []):
         assert(combined is not None or split is not None)
         self.sl_expr = sl_expr

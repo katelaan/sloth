@@ -15,11 +15,11 @@ class TimingException(utils.SlothException):
 class UndefinedMetaAccess(TimingException):
     """Raised upon access of event attribute that has not been set"""
 
-class EventType(object):
+class EventType:
     num_events = 9
     Start, StartSolver, StartSmt, EndSmt, EndSolver, Sat, Unsat, Error, Mark = range(num_events)
 
-class Event(object):
+class Event:
     """Represents a single timed event in the event log.
 
     When logging an event through log.add, the timestamp attribute is
@@ -43,7 +43,7 @@ class Event(object):
             raise UndefinedMetaAccess("Access of undefined event attribute " + name)
 
 
-class EventLog(object):
+class EventLog:
     """Represents a backlog of timed events."""
 
     def __init__(self):

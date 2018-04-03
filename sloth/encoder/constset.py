@@ -9,7 +9,7 @@
 from ..model import model_utils # TODO: Remove cyclic dependency between packages
 from ..backend import struct as struct_mod
 
-class ConstantSet(object):
+class ConstantSet:
     """Represents a set of constants sorted by struct and kind
 (loc/fp/data).
 
@@ -105,13 +105,17 @@ class ConstantSet(object):
 
     def has_consts(self, struct):
         """Does this registry contain any (location) consts of the given struct?"""
-        return bool(self.loc_consts[struct])
+        try:
+            return bool(self.loc_consts[struct])
+        except KeyError:
+            # Struct not even in the map
+            return False
 
     def defined_locs(self, struct, z3_model):
         """Generator for location consts of given struct in given model.
 
         No order on the returned consts guaranteed."""
-        return self._defined_consts(self.loc_consts[struct], z3_model)
+        return self._defined_consts(self.loc_consts.get(struct, set()), z3_model)
 
     def defined_data(self, z3_model):
         return self._defined_consts(self.data_consts, z3_model)
@@ -120,5 +124,10 @@ class ConstantSet(object):
         """Generator for footprint consts of given struct in given model.
 
         No order on the returned consts guaranteed."""
-        fp_consts = (const.ref for const in self.fp_consts[struct])
-        return self._defined_consts(fp_consts, z3_model)
+        try:
+            const_set = self.fp_consts[struct]
+        except KeyError:
+            return iter([])
+        else:
+            fp_consts = (const.ref for const in const_set)
+            return self._defined_consts(fp_consts, z3_model)

@@ -33,7 +33,7 @@ def _fp_constify(struct, term):
         assert(isinstance(term, generic.Set))
         return term
 
-class SlApi(object):
+class SlApi:
     """Programmatic API for creating separation logic expressions.
 
     Mimics the identifiers available in our SMTLIB-style format, but
@@ -45,14 +45,14 @@ class SlApi(object):
     sl.list.null
     >>> sl.list.pointsto("a", "b")
     sl.list.pointsto(a, b)
-    >>> api.is_sat(sl.list.pointsto("a", "b")) # doctest: +SKIP
+    >>> api.is_sat(sl.list.pointsto("a", "b"))
     True
     >>> sl.list.pointsto("a", sl.list.null)
     sl.list.pointsto(a, sl.list.null)
     >>> expr = sl.sepcon(sl.list.pointsto("a", "b"), sl.list.pointsto("a", "c"))
     >>> expr
     sl.sepcon(sl.list.pointsto(a, b), sl.list.pointsto(a, c))
-    >>> api.is_sat(expr, max_depth = 0) # doctest: +SKIP
+    >>> api.is_sat(expr, max_depth = 0)
     False
     >>> z3.And(sl.tree("a"), sl.list("b"))
     And(sl.tree(a), sl.list(b))
@@ -112,7 +112,7 @@ class SlApi(object):
             r = SlApi.sepcon(r, *args)
         return symbols.sep_con_fn(l, r)
 
-class StructApi(object):
+class StructApi:
     """API for constructing assertions for an underlying recursive structure.
 
     The structure is passed to the constructor. For example usage, see
@@ -206,7 +206,7 @@ class StructApi(object):
     def _const(self, args):
         return [_constify(self.struct, arg) for arg in args]
 
-class DataApi(object):
+class DataApi:
     """Api for constructing data predicates.
 
     For example usage, see :class:`SlApi`.

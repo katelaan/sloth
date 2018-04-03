@@ -26,29 +26,29 @@ manually built expressions.
 Given a parse result or an expression, you can run encoding, solving,
 model generation, etc.
 
-TODO: Update encode/solve/is_sat functions in API to reflect new encoder
-
->>> is_sat(sl.list("a")) # doctest: +SKIP
+>>> is_sat(sl.list("a"))
 True
->>> encoding = encode(sl.list.pointsto("a","b")) # doctest: +SKIP
+>>> encoding = encode(sl.list.pointsto("a","b"))
 Defaulting to depth 0
->>> encoding.smt_expr # doctest: +SKIP +ELLIPSIS
+>>> encoding.full() # doctest: +ELLIPSIS
 And(...)
->>> is_sat_encoding(encoding) # doctest: +SKIP
+>>> is_sat_encoding(encoding)
 True
->>> model(encoding) # doctest: +SKIP +ELLIPSIS
+>>> model(encoding) # doctest: +ELLIPSIS
 Model [...]
->>> stats(model(encoding)) # doctest: +SKIP +ELLIPSIS
+>>> stats(model(encoding)) # doctest: +ELLIPSIS
 Model: ...
->>> solve(sl.list("a")) # doctest: +SKIP
+>>> solve(sl.list("a"))
 Model [...]
 
 In addition there are various methods to help you find and interact with benchmarks:
 
 >>> all_benchmarks() # doctest: +ELLIPSIS
 ['../benchmarks/...]
->>> find_benchmarks("list", "seg") # doctest: +SKIP
->>> benchmark("list", "seg") # doctest: +SKIP
+>>> find_benchmarks("list", "seg")
+['../benchmarks/list-boolean-closure/list-not-list-segs.smt2', '../benchmarks/list-boolean-closure/unsat-list-segs-not-list.smt2', '../benchmarks/list-symbolic-heaps/list-sixteen-segments.smt2']
+>>> benchmark("unsat", "list", "seg")
+'../benchmarks/list-boolean-closure/unsat-list-segs-not-list.smt2'
 
 Assuming there is just one benchmark whose filename contains both
 "list" and "seg", the previous two function calls will return a
@@ -66,7 +66,7 @@ from . import config, consts
 from . import slparser, wrapper, slapi
 from . import z3api
 from .backend import LambdaBackend, QuantifiedBackend
-from .encoder import encoder, typing
+from .encoder import encoder, strategy, astbuilder, astutils
 from .model import model as model_module
 from .utils import logger, utils
 from .z3api import z3utils
@@ -154,15 +154,14 @@ def _default_depth(depth):
     else:
         return depth
 
-def encode(input, depth = None, force_depth = False):
-    """Encodes the given input.
+def encode(input, depth = None):
+    """Encodes the given input assuming uniform depth `depth`.
 
     Begins by parsing the input if necessary.
     If no `depth` is provided, depth 0 is assumed by default.
 
     :param: input: Filename, SMTLIB string or parse result to be encoded.
     :param: depth: `int` specifying the unfolding depth in the encoding.
-    :param: force_depth: Set to `True` to enforce full unfolding up to `depth`
 
     :rtype: :class:`encoder.Encoding`
 
@@ -172,30 +171,10 @@ def encode(input, depth = None, force_depth = False):
     if parsed.backend != backend:
         print("Parse result for different backend => Switching backend.")
         _activate_backend(parsed.backend)
-    return encoder.encode_with_uniform_depth(parsed.expr, sts, force_depth, depth)
-
-# def replace_predicates_by_disjunction(input, depth = None, force_depth = False):
-#     """Replaces all predicate calls by their disjuntive unrolling.
-
-#     >>> replace_predicates_by_disjunction(sl.list.seg("a", "b"), 2) # doctest: +NORMALIZE_WHITESPACE
-#     Or(a == b,
-#        And(an == b, sl.list.pointsto(a, an)),
-#        And(ann == b,
-#            sl.sepcon(sl.list.pointsto(a, an),
-#                    sl.list.pointsto(an, ann))))
-
-
-#     :param: input: Filename, SMTLIB string or parse result to be encoded.
-#     :param: depth: `int` specifying the unfolding depth for the disjunction
-#     :param: force_depth: Set to `True` to enforce full unfolding up to `depth`
-
-#     :rtype: :class:`z3.ExprRef`
-
-#     """
-#     depth = _default_depth(depth)
-#     parsed = _ensure_parsed(input)
-#     depths = encoder.root_to_depth_dict(parsed.expr, sts, depth)
-#     return encoder.unfold_predicates_in_expr(parsed.expr, sts, force_depth, depths)
+    ast = astbuilder.processed_ast(sts, parsed.expr)
+    calls = astutils.pred_calls(ast)
+    unfolding_dict = strategy.unfold_uniformly_to_exact_depth(calls, depth)
+    return encoder.encode_ast(ast, sts)
 
 ###############################################################################
 # Solving
@@ -204,7 +183,7 @@ def encode(input, depth = None, force_depth = False):
 def is_sat_encoding(encoding):
     """Return True iff the given encoding is satisfiable."""
     assert(isinstance(encoding, encoder.Encoding))
-    return z3api.is_sat(encoding.smt_expr)
+    return z3api.is_sat(encoding.full())
 
 def is_sat(input, max_depth = config.MAX_DEPTH):
     """Return True iff there is a satisfiable encoding of `input` of depth at most `max_depth`.
@@ -227,89 +206,34 @@ def solve(input, max_depth = config.MAX_DEPTH, print_progress = False):
     :rtype: :class:`model.SmtModel`
 
     """
-
     parsed = _ensure_parsed(input)
-    pure, spatial = typing.separate_spatial_pure(parsed.expr, sts)
-    typed = encoder.typed(spatial, sts)
-
-    depth = 0
-    while depth <= max_depth:
-        if print_progress: print("Trying depth {}".format(depth))
-        # Try the same depth for all structures
-        depths = encoder.root_to_depth_dict(spatial, sts, depth)
-        encoded_spatial, consts = encoder.default_encoding_of_spatial_expr(spatial, sts, False, depths)
-        encoded_expr = z3.And(pure, encoded_spatial) if pure is not None else encoded_spatial
-        if print_progress: print("Encoded expr: {}".format(encoded_expr))
-        if z3api.is_sat(encoded_expr):
-            if print_progress: print("Found solution")
-            return model_module.SmtModel(z3api.model(),
-                                         consts,
-                                         sts)
-        else:
-            depth += 1
-
-def solve_by_unfolding(input, max_depth = config.MAX_DEPTH, print_progress = False):
-    """Compute :class:`model.SmtModel` for the given `input`.
-
-    Tries uniform-depth encodings of increasing depth until a model is
-    found or `max_depth` is exceeded.
-
-    Rather than encoding predicate calls directly, unfolds them into
-    disjunctions of nonrecursive SL formulas.
-
-    >>> a = sl.list.loc("a")
-    >>> solve_by_unfolding(z3.And(sl.list(a), z3.Not(a == sl.list.null))) # doctest: +SKIP +ELLIPSIS
-    Model [...]
-
-    """
-    # TODO: Update this to new encoder API or drop it
-    parsed = _ensure_parsed(input)
-    pure, spatial = typing.separate_spatial_pure(parsed.expr, sts)
-    if print_progress: print("Pure: {}, Spatial: {}".format(pure, spatial))
-    typed = encoder.typed(spatial, sts)
-
-    depth = 0
-    while depth <= max_depth:
-        if print_progress: print("Trying depth {}".format(depth))
-        # Try the same depth for all structures
-        depths = encoder.root_to_depth_dict(spatial, sts, depth)
-        # TODO: This is currently the only algorithmic difference to standard solve => reduce code duplication
-        unfolded = replace_predicates_by_disjunction(spatial, depth)
-        if print_progress: print("Unfolded: {}".format(unfolded))
-        # FIXME: This currently fails immediately if there are separating conjunctions, because we cannot deal with Boolean operators below *...
-        encoded_spatial, consts = encoder.default_encoding_of_spatial_expr(unfolded, sts, False, depths)
-        if print_progress: print("Encoded spatial: {}".format(encoded_spatial))
-        if print_progress: print("Consts: {}".format(consts))
-        encoded_expr = z3.And(pure, encoded_spatial) if pure is not None else encoded_spatial
-        if print_progress: print("Full encoding: {}".format(encoded_expr))
-        if z3api.is_sat(encoded_expr):
-            if print_progress: print("Found solution")
-            return model_module.SmtModel(z3api.model(),
-                                         consts,
-                                         sts)
-        else:
-            depth += 1
+    if parsed.backend != backend:
+        print("Parse result for different backend => Switching backend.")
+        _activate_backend(parsed.backend)
+    return strategy.solve_by_unfolding_strategy(sts, parsed.expr, external_depth_bound = max_depth, print_result = print_progress)
 
 ###############################################################################
 # Model adaptation & plotting
 ###############################################################################
 
-def model(encoding):
-    """Returns model for the given encoding.
+def model(input):
+    """Returns model for the given expression or encoding.
 
     Raises :class:`ApiException` if no model is available.
 
     :param: encoding: :class:`encoder.Encoding` instance to encode
 
     :rtype: :class:`model.SmtModel`"""
-    assert(isinstance(encoding, encoder.Encoding))
-    try:
-        z3api.is_sat(encoding.smt_expr)
-        return model_module.SmtModel(z3api.model(),
-                                     encoding.const_registry,
-                                     sts)
-    except z3.Z3Exception as e:
-        raise ApiException("No model available")
+    if isinstance(input, encoder.Encoding):
+        is_sat_encoding(input)
+        try:
+            return model_module.SmtModel(z3api.model(),
+                                         input.constants,
+                                         sts)
+        except z3.Z3Exception as e:
+            raise ApiException("No model available")
+    else:
+        return solve(input)
 
 def z3_to_py(expr):
     """Converts given z3 literal into python's built-in numbers."""

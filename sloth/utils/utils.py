@@ -75,7 +75,7 @@ def contains_all(substrings, string):
                 return False
         return True
 
-class DummyFile(object):
+class DummyFile:
     def write(self, x): pass
 
 @contextlib.contextmanager

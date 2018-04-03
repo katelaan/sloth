@@ -26,7 +26,7 @@ def max_num_stops(struct):
 
 DEFAULT_LOG_LEVEL = logging.WARN
 
-class IOConfig(object):
+class IOConfig:
 
     def __init__(self):
         self.input_file = None
@@ -43,7 +43,7 @@ class IOConfig(object):
     def indexed_encoding_file(self, i):
         return self.encoding_file[:-5] + str(i) + self.encoding_file[-5:]
 
-class SolverConfig(object):
+class SolverConfig:
 
     def __init__(self):
         self.max_depth = MAX_DEPTH

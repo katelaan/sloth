@@ -11,7 +11,7 @@ from ..backend import struct as struct_mod
 from .utils import EncoderState
 from .astutils import occurring_structs
 
-class FootprintManager(object):
+class FootprintManager:
     """Adapter for the dict of footprint names currently in scope.
 
     >>> ls, tree = sl.list.struct, sl.tree.struct

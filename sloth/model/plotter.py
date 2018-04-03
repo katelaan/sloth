@@ -8,7 +8,7 @@ def plot_model(smt_model, draw_isolated_nodes):
     plotter = Plotter(smt_model, draw_isolated_nodes)
     plotter.run()
 
-class Plotter(object):
+class Plotter:
 
     def __init__(self, model, draw_isolated_nodes):
         self.model = model

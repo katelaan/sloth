@@ -44,7 +44,7 @@ def stop_node_partition(struct, stop_nodes):
         else:
             raise NotImplementedError("Branching factor != 1 or 2 not supported")
 
-class UnrolledConstraint(object):
+class UnrolledConstraint:
     def __init__(self, spatial, data, data_eq):
         for s in spatial:
             if not str(s).startswith("sl."):

@@ -22,7 +22,7 @@ class StructureAccessException(utils.SlothException):
 
 Ptr = collections.namedtuple("Ptr", ["src", "trg", "fld"])
 
-class Rule(object):
+class Rule:
     """A rule defining one option to unfold a recursive structure."""
     def __init__(self, ptrs, force_null = []):
         for ptr in ptrs:
@@ -30,7 +30,7 @@ class Rule(object):
         self.ptrs = ptrs
         self.non_null = [ptr.src for ptr in ptrs]
 
-class Struct(object):
+class Struct:
     """Representation of a recursively defined data structure."""
 
     # TODO: Memoize some of the definitions? Especially all those that collect declarations!

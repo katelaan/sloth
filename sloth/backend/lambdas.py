@@ -7,7 +7,7 @@ from . import generic, symbols
 class WrappedSort(generic.SlSort):
     def __init__(self, z3_sort):
         assert(isinstance(z3_sort, z3.SortRef))
-        super(WrappedSort, self).__init__(z3_sort, LambdaSet)
+        super().__init__(z3_sort, LambdaSet)
 
     def __str__(self):
         return str(self.ref)
@@ -20,7 +20,7 @@ class WrappedSort(generic.SlSort):
 class LambdaSet(generic.Set):
     def __init__(self, ref, elem_sort):
         logger.debug("Creating new lambda set from {}".format(ref))
-        super(LambdaSet, self).__init__(ref, elem_sort)
+        super().__init__(ref, elem_sort)
 
     @staticmethod
     def get_empty(elem_sort):
@@ -66,13 +66,13 @@ class LambdaSet(generic.Set):
 
 class IntegerLocInterpretation(generic.LocInterpretation):
     def __init__(self, struct, const_registry, z3_model):
-        super(IntegerLocInterpretation, self).__init__(struct, const_registry, z3_model)
+        super().__init__(struct, const_registry, z3_model)
         if self._is_used():
             self._gather_locs()
         self._init_node_labeling()
 
     def __repr__(self):
-        return "Integers("+super(IntegerLocInterpretation, self).__repr__()+")"
+        return "Integers("+super().__repr__()+")"
 
     def _gather_locs(self):
         acc = set(map(lambda c : model_utils.val_of(c, self.z3_model), self.consts))

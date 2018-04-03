@@ -23,7 +23,7 @@ def val_of(const, z3_model):
         logger.info("Caught exception {}".format(e))
         raise utils.IllegalSolverState(fmt.format(const, const.__class__))
 
-class FuncWrapper(object):
+class FuncWrapper:
 
     def __init__(self, z3_model, fn):
         assert(isinstance(fn, z3.FuncDeclRef))

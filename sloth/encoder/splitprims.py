@@ -6,7 +6,7 @@ from ..backend import generic, struct as struct_mod
 from ..backend.symbols import LAnd
 from .footprints import to_fp_dict
 
-class SplitEncoding(object):
+class SplitEncoding:
     def __init__(self, structure, footprint):
         self.structure = structure
         self.footprint = footprint

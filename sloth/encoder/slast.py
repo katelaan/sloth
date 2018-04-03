@@ -17,7 +17,7 @@ from ..backend import symbols
 from .utils import EncoderState
 from . import astutils
 
-class SlAst(object):
+class SlAst:
 
     def __init__(self):
         self.state = EncoderState.Initial
@@ -65,7 +65,7 @@ class PointsTo(SlAst):
     """
 
     def __init__(self, struct, src, *trg):
-        super(PointsTo, self).__init__()
+        super().__init__()
         self.struct = struct
         self.src = src
         self.trg = list(trg)
@@ -101,7 +101,7 @@ class PointsToSingleField(SlAst):
     """
 
     def __init__(self, struct, fld, src, trg):
-        super(PointsToSingleField, self).__init__()
+        super().__init__()
         self.struct = struct
         self.src = src
         self.fld = fld
@@ -137,7 +137,7 @@ class PredCall(SlAst):
     #fp_letter = "C"
 
     def __init__(self, struct, fld, pred, root, *stop_nodes):
-        super(PredCall, self).__init__()
+        super().__init__()
         # Both None => Core, spatial predicate call
         # Both != None => Data predicate call
         assert((fld is None) or isinstance(fld, str))
@@ -191,7 +191,7 @@ class PredCall(SlAst):
 
 class SpatialEq(SlAst):
     def __init__(self, struct, negated, left, right):
-        super(SpatialEq, self).__init__()
+        super().__init__()
         self.struct = struct
         self.negated = negated
         self.left = left
@@ -226,7 +226,7 @@ class DataAtom(SlAst):
     """
 
     def __init__(self, atom):
-        super(DataAtom, self).__init__()
+        super().__init__()
         self.atom = atom
         self.fps = {} # Data atoms have no spatial content!
 
@@ -271,7 +271,7 @@ class Op(SlAst):
 
 class BinOp(Op):
     def __init__(self, left, right):
-        super(BinOp, self).__init__()
+        super().__init__()
         self.left = left
         self.right = right
 
@@ -295,7 +295,7 @@ class SepCon(BinOp):
     fp_letter = "S"
 
     def __init__(self, left, right):
-        super(SepCon, self).__init__(left, right)
+        super().__init__(left, right)
 
 class SlAnd(BinOp):
 
@@ -303,7 +303,7 @@ class SlAnd(BinOp):
     fp_letter = 'A'
 
     def __init__(self, left, right):
-        super(SlAnd, self).__init__(left, right)
+        super().__init__(left, right)
 
 class SlOr(BinOp):
 
@@ -311,7 +311,7 @@ class SlOr(BinOp):
     fp_letter = 'O'
 
     def __init__(self, left, right):
-        super(SlOr, self).__init__(left, right)
+        super().__init__(left, right)
 
 class SlNot(Op):
 
@@ -319,7 +319,7 @@ class SlNot(Op):
     fp_letter = 'N'
 
     def __init__(self, arg):
-        super(SlNot, self).__init__()
+        super().__init__()
         self.arg = arg
 
     def __iter__(self):

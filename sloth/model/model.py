@@ -17,7 +17,7 @@ def tag(struct):
     """Return a function for converting locations of the given structure into typed locations."""
     return lambda l : TypedLoc(l, str(struct))
 
-class StructModel(object):
+class StructModel:
     """The interpretation of a single type of structure.
 
     Provides an interface to locations, constants etc. of the given
@@ -111,7 +111,7 @@ class StructModel(object):
 # Integrated Model
 ###############################################################################
 
-class SmtModel(object):
+class SmtModel:
     """An adapter for :class:`z3.ModelRef` models.
 
     Based on a set of predefined structures as well as a
