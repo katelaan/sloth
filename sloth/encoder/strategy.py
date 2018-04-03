@@ -12,6 +12,7 @@
 
 Let's try getting models for ordinary symbolic heaps:
 
+>>> sts = sl.structs
 >>> solve = functools.partial(solve_by_unfolding_strategy, sts)
 >>> solve(sl.tree.pointsto("a", "b", "c"), 0)
 Found model for unfolding []

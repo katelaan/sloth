@@ -79,22 +79,16 @@ class ApiException(utils.SlothException):
 ###############################################################################
 
 backend = None
-sts = None
 sl = None
 
 def _activation_msg(backend):
     print("Backend: {}.".format(backend))
 
-def _reinit_structs():
-    global sts
-    global sl
-    sl = slapi.SlApi(backend)
-    sts = sl.structs
-
 def _activate_backend(b, print_activation_msg):
     global backend
+    global sl
     backend = b
-    _reinit_structs()
+    sl = slapi.SlApi(backend)
     if print_activation_msg:
         _activation_msg(backend)
 
@@ -123,9 +117,9 @@ def parse(string):
     :rtype: :class:`ParseResult`"""
     if '\n' not in string:
         # Single line => Probably filename
-        parsed = slparser.parse_sl_file(string, sts)
+        parsed = slparser.parse_sl_file(string, sl.structs)
     else:
-        parsed = slparser.parse_sl(string, sts)[0]
+        parsed = slparser.parse_sl(string, sl.structs)[0]
     return ParseResult(parsed, backend)
 
 def _ensure_parsed(input):
@@ -142,6 +136,11 @@ def _ensure_parsed(input):
     else:
         fmt = "Don't know how to handle parser input {}"
         raise ApiException(fmt.format(input))
+
+def _ensure_correct_backend(parsed):
+    if parsed.backend is not backend:
+        print("Parse result for different backend => Switching backend.")
+        _activate_backend(parsed.backend)
 
 ###############################################################################
 # Encoding
@@ -168,13 +167,11 @@ def encode(input, depth = None):
     """
     depth = _default_depth(depth)
     parsed = _ensure_parsed(input)
-    if parsed.backend != backend:
-        print("Parse result for different backend => Switching backend.")
-        _activate_backend(parsed.backend)
-    ast = astbuilder.processed_ast(sts, parsed.expr)
+    _ensure_correct_backend(parsed)
+    ast = astbuilder.processed_ast(sl.structs, parsed.expr)
     calls = astutils.pred_calls(ast)
     unfolding_dict = strategy.unfold_uniformly_to_exact_depth(calls, depth)
-    return encoder.encode_ast(ast, sts)
+    return encoder.encode_ast(ast, sl.structs)
 
 ###############################################################################
 # Solving
@@ -207,10 +204,8 @@ def solve(input, max_depth = config.MAX_DEPTH, print_progress = False):
 
     """
     parsed = _ensure_parsed(input)
-    if parsed.backend != backend:
-        print("Parse result for different backend => Switching backend.")
-        _activate_backend(parsed.backend)
-    return strategy.solve_by_unfolding_strategy(sts, parsed.expr, external_depth_bound = max_depth, print_result = print_progress)
+    _ensure_correct_backend(parsed)
+    return strategy.solve_by_unfolding_strategy(sl.structs, parsed.expr, external_depth_bound = max_depth, print_result = print_progress)
 
 ###############################################################################
 # Model adaptation & plotting
@@ -229,7 +224,7 @@ def model(input):
         try:
             return model_module.SmtModel(z3api.model(),
                                          input.constants,
-                                         sts)
+                                         sl.structs)
         except z3.Z3Exception as e:
             raise ApiException("No model available")
     else:
@@ -247,7 +242,7 @@ def stats(mod = None):
     """Print statistics about the given :class:`model.SmtModel`."""
     if mod is None: mod = model()
     if isinstance(mod, model_module.SmtModel):
-        wrapper.show_result(mod, sts)
+        wrapper.show_result(mod, sl.structs)
     else:
         raise ApiException("Can only show stats for SmtModel")
 

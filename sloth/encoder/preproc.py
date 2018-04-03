@@ -7,11 +7,11 @@
   from z3 import *
 
 >>> expr = sl.sepcon(sl.list("a"), sl.list.seg("b", "c"))
->>> spatial = ast(sts, expr)
+>>> spatial = ast(sl.structs, expr)
 >>> assign_negation_to_leaves(spatial)
 >>> not(spatial[0].is_under_negation or spatial[1].is_under_negation)
 True
->>> spatial = ast(sts, Not(expr))
+>>> spatial = ast(sl.structs, Not(expr))
 >>> assign_negation_to_leaves(spatial)
 >>> spatial[0][0].is_under_negation and spatial[0][1].is_under_negation
 True
@@ -30,7 +30,7 @@ def assign_ids(ast):
     wrong models for formulas like list(x) * list(x) * x !=
     null.
 
-    >>> t = ast(sts, sl.sepcon(sl.list("x"), sl.list("x")))
+    >>> t = ast(sl.structs, sl.sepcon(sl.list("x"), sl.list("x")))
     >>> SlAst.id_ = [0]
     >>> assign_ids(t)
     >>> t[0], t[0].id_

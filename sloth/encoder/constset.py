@@ -13,7 +13,7 @@ class ConstantSet:
     """Represents a set of constants sorted by struct and kind
 (loc/fp/data).
 
-    >>> c = ConstantSet(sts)
+    >>> c = ConstantSet(sl.structs)
     >>> c.add_data_consts(*Ints("a b"))
     >>> c
     consts(data={a,b})
@@ -27,7 +27,7 @@ class ConstantSet:
 
     You can take the side-effect free union of two constant sets via +:
 
-    >>> d = ConstantSet(sts)
+    >>> d = ConstantSet(sl.structs)
     >>> d.add_loc_consts(sl.list.struct, sl.list.loc("w"))
     >>> c + d
     consts(

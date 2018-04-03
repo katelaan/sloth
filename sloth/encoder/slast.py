@@ -5,6 +5,7 @@ bookkeeping.
 
 .. testsetup::
 
+   from sloth import *
    from sloth.encoder.encoder import encode_ast
    from sloth.encoder.astbuilder import processed_ast
    from sloth.encoder.slast import *
@@ -58,7 +59,7 @@ def _rep(obj, args):
 class PointsTo(SlAst):
     """Representation of sl.struct.pointsto(src, trg_0,...trg_k).
 
-    >>> t = processed_ast(sts, sl.tree.pointsto("a", "b", "c"))
+    >>> t = processed_ast(sl.structs, sl.tree.pointsto("a", "b", "c"))
     >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
     Encoding[...]
 
@@ -91,10 +92,10 @@ class PointsTo(SlAst):
 class PointsToSingleField(SlAst):
     """Representation of sl.struct.fld(src, trg).
 
-    >>> t = processed_ast(sts, sl.list.next("a", "b"))
+    >>> t = processed_ast(sl.structs, sl.list.next("a", "b"))
     >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
     Encoding[...]
-    >>> t = processed_ast(sts, sl.list.data("a", "b"))
+    >>> t = processed_ast(sl.structs, sl.list.data("a", "b"))
     >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
     Encoding[...]
 
@@ -219,7 +220,7 @@ class DataAtom(SlAst):
     """Representation of atomic formulas in the data part.
 
     >>> a = Int("a")
-    >>> t = processed_ast(sts, a < 42)
+    >>> t = processed_ast(sl.structs, a < 42)
     >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
     Encoding[...]
 
@@ -285,7 +286,7 @@ class SepCon(BinOp):
     """A binary separating conjunction.
 
     >>> expr = sl.sepcon(sl.list.pointsto("a", "b"), sl.list.pointsto("b", "c"))
-    >>> t = processed_ast(sts, expr)
+    >>> t = processed_ast(sl.structs, expr)
     >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
     Encoding[...]
 

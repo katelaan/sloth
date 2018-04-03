@@ -24,8 +24,8 @@ def fold(f_inner, f_leaf, ast):
 def consts_by_struct(ast, structs):
     """Return a map from `structs` to the set of constants per struct.
 
-    >>> t = processed_ast(sts, sl.tree.pointsto("a", "b", "c"))
-    >>> utils.print_unique_repr(consts_by_struct(t, sts))
+    >>> t = processed_ast(sl.structs, sl.tree.pointsto("a", "b", "c"))
+    >>> utils.print_unique_repr(consts_by_struct(t, sl.structs))
     {Struct(sl.dlist): {}, Struct(sl.list): {}, Struct(sl.ptree): {}, Struct(sl.tree): {a, b, c}}
 
     """
@@ -44,7 +44,7 @@ def consts_by_struct(ast, structs):
 def pred_calls(ast):
     """Returns the set of all predicate calls that occur in this AST.
 
-    >>> t = ast(sts, And(sl.sepcon(sl.list("l"), sl.tree.left("a","b")), sl.list.dpred.next(sl.alpha < sl.beta, "l")))
+    >>> t = ast(sl.structs, And(sl.sepcon(sl.list("l"), sl.tree.left("a","b")), sl.list.dpred.next(sl.alpha < sl.beta, "l")))
     >>> pred_calls(t)
     {...}
     >>> sorted(pred_calls(t), key=str)
@@ -64,7 +64,7 @@ def pred_calls(ast):
 def occurring_structs(ast):
     """Returns the set of all structures that occur in this AST.
 
-    >>> get_structs = lambda expr : sorted(map(str,list(occurring_structs(ast(sts, expr)))))
+    >>> get_structs = lambda expr : sorted(map(str,list(occurring_structs(ast(sl.structs, expr)))))
     >>> a = Int("a")
     >>> get_structs(a < 23)
     []
