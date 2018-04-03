@@ -18,7 +18,7 @@ import z3
 
 from . import consts, config
 from .utils import utils
-from .backend import symbols, generic
+from .backend import symbols, generic, struct
 
 def _constify(struct, term):
     if isinstance(term, str):
@@ -41,7 +41,7 @@ class SlApi:
     builds :class:`z3.ExprRef` instances directly rather than going
     through z3's parser.
 
-    >>> sl = SlApi(LambdaBackend.make_structs())
+    >>> sl = SlApi(LambdaBackend)
     >>> sl.list.null
     sl.list.null
     >>> sl.list.pointsto("a", "b")
@@ -82,14 +82,15 @@ class SlApi:
 
     """
 
-    def __init__(self, structs):
+    def __init__(self, backend):
         """Construct API in which exactly the given structures are defined.
 
         Uses the unqualified names of the structures to choose the
         attribute names.
 
         """
-        for s in structs:
+        self.structs = struct.make_predef_structs(backend)
+        for s in self.structs:
             setattr(self, s.unqualified_name, StructApi(s))
 
         #for i in range(config.MAX_BRANCHING+1):
@@ -146,7 +147,7 @@ class StructApi:
     def loc(self, arg):
         """Returns a location constant for the given argument.
 
-        >>> sl = SlApi(LambdaBackend.make_structs())
+        >>> sl = SlApi(LambdaBackend)
         >>> a = sl.list.loc("a")
         >>> a
         a
@@ -162,7 +163,7 @@ class StructApi:
         Can be invoked both with a single space-separated string and
         with one parameter per location.
 
-        >>> sl = SlApi(LambdaBackend.make_structs())
+        >>> sl = SlApi(LambdaBackend)
         >>> sl.list.locs("a", "b", "c")
         [a, b, c]
         >>> sl.list.locs("a b c")
@@ -175,7 +176,7 @@ class StructApi:
     def fp(self, arg):
         """Returns a footprint set for the given argument.
 
-        >>> sl = SlApi(LambdaBackend.make_structs())
+        >>> sl = SlApi(LambdaBackend)
         >>> sl.tree.fp("X")
         X : SET(Int)
 
@@ -185,7 +186,7 @@ class StructApi:
     def fps(self, *args):
         """Returns a tuple of footprint sets for the given arguments.
 
-        >>> sl = SlApi(LambdaBackend.make_structs())
+        >>> sl = SlApi(LambdaBackend)
         >>> sl.tree.fps("X", "Y")
         (X : SET(Int), Y : SET(Int))
 

@@ -65,7 +65,7 @@ import z3
 from . import config, consts
 from . import slparser, wrapper, slapi
 from . import z3api
-from .backend import LambdaBackend, QuantifiedBackend
+from .backend import LambdaBackend, QuantifiedBackend, struct
 from .encoder import encoder, strategy, astbuilder, astutils
 from .model import model as model_module
 from .utils import logger, utils
@@ -88,26 +88,26 @@ def _activation_msg(backend):
 def _reinit_structs():
     global sts
     global sl
-    sts = backend.make_structs()
-    sl = slapi.SlApi(sts)
+    sl = slapi.SlApi(backend)
+    sts = sl.structs
 
-def _activate_backend(b, msg):
+def _activate_backend(b, print_activation_msg):
     global backend
     backend = b
     _reinit_structs()
-    if msg:
+    if print_activation_msg:
         _activation_msg(backend)
 
-def activate_lambda_backend(msg = True):
+def activate_lambda_backend(print_activation_msg = True):
     """Activates the lambda backend."""
-    _activate_backend(LambdaBackend, msg)
+    _activate_backend(LambdaBackend, print_activation_msg)
 
 def activate_quantified_backend(msg = True):
     """Activates the backend with unintepreted sorts & quantifiers."""
     _activate_backend(QuantifiedBackend, msg)
 
 # By default, activate the lambda backend
-activate_lambda_backend(msg = False)
+activate_lambda_backend(print_activation_msg = False)
 
 ###############################################################################
 # Parsing

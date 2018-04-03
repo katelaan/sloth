@@ -3,8 +3,9 @@
 
 from . import config
 from . import slparser, serialization
-from .model import model
+from .backend import struct
 from .encoder import strategy
+from .model import model
 from .utils import logger, timing, utils
 
 ###############################################################################
@@ -89,7 +90,7 @@ def preprocess(io_config, solver_config):
 
     Whether debug output is produced depends on the `io_config`."""
     if io_config.print_symbol_table:
-        symbols.print_sl_summary(solver_config.structs)
+        struct.print_sl_summary(solver_config.structs)
     logger.info("Will solve SL query in '{}'".format(io_config.input_file))
     parsed, max_depth = parse_sl(io_config.input_file, solver_config.structs)
     if parsed is not None:

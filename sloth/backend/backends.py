@@ -1,7 +1,7 @@
 import z3
 
 from .. import consts
-from . import quantified, lambdas, symbols
+from . import quantified, lambdas
 
 class Backend:
 
@@ -13,9 +13,6 @@ class Backend:
 
     def make_loc_sort(self, struct_name):
         raise NotImplementedError("")
-
-    def make_structs(self):
-        return symbols.make_predef_structs(self)
 
 class _QuantifiedBackend(Backend):
 
@@ -42,8 +39,10 @@ class _LambdaBackend(Backend):
         return lambdas.WrappedSort(z3.IntSort())
 
 QuantifiedBackend = _QuantifiedBackend()
-
 LambdaBackend = _LambdaBackend()
+
+del _QuantifiedBackend
+del _LambdaBackend
 
 def exists(backend_str):
     return backend_str in registry

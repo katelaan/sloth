@@ -13,7 +13,7 @@ from z3 import eq, FuncDeclRef, Var, BoolSort, And
 
 from ..utils import logger, utils
 from ..z3api import z3utils, rewriter
-from ..backend import symbols
+from ..backend import symbols, struct
 from .exceptions import SortMixException, UndefinedStructException, PureSpatialMixException
 
 def struct_of(decl, structs, tolerate_failure = False):
@@ -43,7 +43,7 @@ def separate_spatial_pure(expr, structs):
     def is_leaf(smt_expr):
         return smt_expr.decl() not in bool_decls
     def leaf(smt_expr):
-        if smt_expr.decl() in symbols.spatial_symbols(structs):
+        if smt_expr.decl() in struct.spatial_symbols(structs):
             return (None, smt_expr)
         else:
             return (smt_expr, None)

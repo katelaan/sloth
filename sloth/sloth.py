@@ -2,7 +2,7 @@ import os
 import argparse
 
 from . import consts, config
-from .backend import backends, symbols
+from .backend import backends, struct
 from .utils import logger
 
 def arg_parser():
@@ -96,7 +96,7 @@ def _configure_solver(args):
     if backends.exists(solver_config.backend):
         backend = backends.get(solver_config.backend)
         logger.info("Backend: {}".format(backend))
-        solver_config.structs = symbols.make_predef_structs(
+        solver_config.structs = struct.make_predef_structs(
             # Configure the backend for generating the SMT encoding
             encoder_backend = backend
         )

@@ -14,8 +14,8 @@ import z3
 
 from .. import consts, config
 from ..utils import utils
-# FIXME: Disentangle the cyclic dependencies between the backend modules...
-#from . import generic. (See commented lines with generic reference here)
+from . import backends
+from . import symbols
 
 class StructureAccessException(utils.SlothException):
     """Thrown upon attempted access of undefined function declarations or fields"""
@@ -79,9 +79,6 @@ class Struct:
         return "Struct({})".format(self.name)
 
     def _init_decl_mapping(self):
-        # TODO: Get rid of cyclic dependency between struct and symbols
-        from . import symbols
-
         self._decl_mapping = {
         symbols.sep_con_fn : z3.Function(self.name+"."+consts.SEP_CON_SUFFIX,
                                  z3.BoolSort(), z3.BoolSort(), z3.BoolSort()),
@@ -229,3 +226,139 @@ class Struct:
     def is_linear(self):
         """Does this structure have just one success of its own sort?"""
         return self.branching_factor == 1
+
+###############################################################################
+# Predefined structures
+###############################################################################
+
+def make_predef_structs(encoder_backend):
+    """
+    Instantiate a set of predefined structures with the given backend(s), which specify
+    how to parse assertions about the structure and how to generate encodings of the structure.
+    By default, we parse using the backend with uninterpreted sorts.
+    """
+    parser_backend = backends.QuantifiedBackend
+
+    list_loc = parser_backend.make_loc_sort(consts.LIST_PRED)
+    dlist_loc = parser_backend.make_loc_sort(consts.DLIST_PRED)
+    tree_loc = parser_backend.make_loc_sort(consts.TREE_PRED)
+    ptree_loc = parser_backend.make_loc_sort(consts.PTREE_PRED)
+
+    list_enc_loc = encoder_backend.make_loc_sort(consts.LIST_PRED)
+    dlist_enc_loc = encoder_backend.make_loc_sort(consts.DLIST_PRED)
+    tree_enc_loc = encoder_backend.make_loc_sort(consts.TREE_PRED)
+    ptree_enc_loc = encoder_backend.make_loc_sort(consts.PTREE_PRED)
+
+    # TODO: Allocate data pointers in unrolling rules? -- See also FIXME in unrolling_rewriter in rewriting
+
+    list_struct = Struct(consts.LIST_PRED,
+                         input_sort_name = str(list_loc),
+                         sort = list_enc_loc,
+                         fields = {consts.FLD_NEXT : list_enc_loc.ref,
+                                   consts.FLD_DATA : symbols.data_sort},
+                         structural_fields = [consts.FLD_NEXT],
+                         points_to_fields = [consts.FLD_NEXT],
+                         unrolling_rules = [
+                             Rule([Ptr(0, 1, consts.FLD_NEXT)])
+                         ],
+                         LocInterpretation = encoder_backend.LocInterpretation
+    )
+    dlist_struct = Struct(consts.DLIST_PRED,
+                          input_sort_name = str(dlist_loc),
+                          sort = dlist_enc_loc,
+                          fields = {consts.FLD_NEXT : dlist_enc_loc.ref,
+                                    consts.FLD_PREV : dlist_enc_loc.ref,
+                                    consts.FLD_DATA : symbols.data_sort},
+                          structural_fields = [consts.FLD_NEXT],
+                          points_to_fields = [consts.FLD_NEXT, consts.FLD_PREV],
+                          unrolling_rules = [
+                              Rule([Ptr(0, 1, consts.FLD_NEXT), Ptr(1, 0, consts.FLD_PREV)]),
+                              Rule([Ptr(0, 1, consts.FLD_NEXT)], force_null = [1])
+                          ],
+                          LocInterpretation = encoder_backend.LocInterpretation
+    )
+    tree_struct = Struct(consts.TREE_PRED,
+                         input_sort_name = str(tree_loc),
+                         sort = tree_enc_loc,
+                         fields = {consts.FLD_LEFT : tree_enc_loc.ref,
+                                   consts.FLD_RIGHT : tree_enc_loc.ref,
+                                   consts.FLD_DATA : symbols.data_sort},
+                         structural_fields = [consts.FLD_LEFT, consts.FLD_RIGHT],
+                         points_to_fields = [consts.FLD_LEFT, consts.FLD_RIGHT],
+                         unrolling_rules = [
+                             Rule([Ptr(0, 1, consts.FLD_LEFT), Ptr(0, 2, consts.FLD_RIGHT)])
+                         ],
+                         LocInterpretation = encoder_backend.LocInterpretation
+    )
+    ptree_struct = Struct(consts.PTREE_PRED,
+                          input_sort_name = str(ptree_loc),
+                          sort = ptree_enc_loc,
+                          fields = {consts.FLD_LEFT : ptree_enc_loc.ref,
+                                    consts.FLD_RIGHT : ptree_enc_loc.ref,
+                                    consts.FLD_PARENT : ptree_enc_loc.ref,
+                                    consts.FLD_DATA : symbols.data_sort},
+                          structural_fields = [consts.FLD_LEFT, consts.FLD_RIGHT],
+                          points_to_fields = [consts.FLD_LEFT, consts.FLD_RIGHT, consts.FLD_PARENT],
+                          unrolling_rules = [
+                              # Both children non-null
+                              Rule([Ptr(0, 1, consts.FLD_LEFT), Ptr(1, 0, consts.FLD_PARENT),
+                                    Ptr(0, 2, consts.FLD_RIGHT), Ptr(2, 0, consts.FLD_PARENT)
+                              ]),
+                              # Left child non-null
+                              Rule([Ptr(0, 1, consts.FLD_LEFT), Ptr(1, 0, consts.FLD_PARENT),
+                                    Ptr(0, 2, consts.FLD_RIGHT)],
+                                   force_null = [2]),
+                              # Right child non-null
+                              Rule([Ptr(0, 1, consts.FLD_LEFT),
+                                    Ptr(0, 2, consts.FLD_RIGHT), Ptr(2, 0, consts.FLD_PARENT)],
+                                   force_null = [1]),
+                              # Both children null
+                              Rule([Ptr(0, 1, consts.FLD_LEFT),
+                                    Ptr(0, 2, consts.FLD_RIGHT)],
+                                   force_null = [1,2])
+                          ],
+                          LocInterpretation = encoder_backend.LocInterpretation
+    )
+
+    return (list_struct, dlist_struct, tree_struct, ptree_struct)
+
+###############################################################################
+# Auxiliary functions for structures
+###############################################################################
+
+# def is_root_of_struct(structs, expr):
+#     """Return true iff the given expression is a predicate (segment) call for one of the predefined structures."""
+#     assert(isinstance(expr, z3.ExprRef))
+#     for struct in structs:
+#         if expr.decl() in struct.recursive_predicates():
+#             logger.debug("{} is root of {}".format(expr, struct.name))
+#             return True
+#     return False
+
+# def is_root_of(struct, expr):
+#     assert(isinstance(struct, Struct))
+#     assert(isinstance(expr, z3.ExprRef))
+#     return expr.decl() in struct.parsable_decls()
+
+def spatial_symbols(structs):
+    """Returns a set of all defined spatial SL theory symbols.
+
+    The set contains both the symbols for the given structures and the
+    built-in symbols.
+
+    """
+    all_decls = [struct.spatial_decls() for struct in structs]
+    return set(utils.flatten(all_decls) + [symbols.sep_con_fn, symbols.submodel_fn])
+
+def print_struct_summary(struct):
+    print("STRUCT {} [".format(struct))
+    print("  location sort for input = {}".format(struct.input_sort_name))
+    print("  location sort in encoding = {}".format(struct.sort))
+    to_print = [z3utils.decl_to_string(decl) for decl in struct.parsable_decls()]
+    for v in sorted(to_print):
+        print("  " + v)
+    print("]")
+
+def print_sl_summary(structs):
+    for s in structs:
+        print_struct_summary(s)
