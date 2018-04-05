@@ -77,14 +77,32 @@ class LambdaSet(generic.Set):
         return z3.Map(symbols.or_decl, left.ref, right.ref)
 
     def is_union_of_all(self, *parts):
-        assert(len(parts) >= 2)
-        while len(parts) >= 2:
-            parts = (LambdaSet(LambdaSet._map_union(parts[0], parts[1]), self.elem_sort),) + parts[2:]
-        return self.ref == parts[0].ref
+        return self.ref == LambdaSet.union_of_all(self.elem_sort, *parts).ref
+
+    def is_intersection_of_all(self, *parts):
+        return self.ref == LambdaSet.intersection_of_all(self.elem_sort, *parts).ref
 
     def union_without_elem(self, part1, part2, elem):
         return z3.And(self.contains(elem),
                       self.remove(elem).union_of(part1, part2))
+
+    def intersected_with(self, other):
+        return LambdaSet(LambdaSet._map_intersection(self, other))
+
+    def union_with(self, other):
+        return LambdaSet(LambdaSet._map_union(self, other))
+
+    @staticmethod
+    def intersection_of_all(elem_sort, *sets):
+        while len(sets) >= 2:
+            sets = (LambdaSet(LambdaSet._map_intersection(sets[0], sets[1]), elem_sort),) + sets[2:]
+        return sets[0]
+
+    @staticmethod
+    def union_of_all(elem_sort, *sets):
+        while len(sets) >= 2:
+            sets = (LambdaSet(LambdaSet._map_union(sets[0], sets[1]), elem_sort),) + sets[2:]
+        return sets[0]
 
 
 class IntegerLocInterpretation(generic.LocInterpretation):

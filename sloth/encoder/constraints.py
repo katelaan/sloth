@@ -11,7 +11,7 @@ class ConstraintList:
         self.constraints = []
 
     def append_constraint(self, constraint):
-        assert(isinstance(constraint, SmtConstraint))
+        assert isinstance(constraint, SmtConstraint), "Can't use {} as SmtConstraint".format(type(constraint).__name__)
         self.constraints.append(constraint)
 
     def append_expr(self, constraint, sl_expr = None, description = None):
@@ -41,6 +41,9 @@ def as_constraint(expr, sl_expr = None, description = None):
         assert isinstance(expr, z3.ExprRef), 'Unexpected type {}'.format(type(expr).__name__)
         return BaseConstraint(expr, sl_expr = sl_expr, description = description)
 
+def from_list(ls):
+    return ConstraintList.from_list(ls)
+
 class SmtConstraint:
 
     def __str__(self):
@@ -57,7 +60,7 @@ class SmtConstraint:
 
 def pretty_print(constraint, indent = '  '):
     # TODO: Return valid SMT2 expression? (by rewriting operators to lower case etc.)
-    assert(isinstance(constraint, SmtConstraint))
+    assert isinstance(constraint, SmtConstraint), "Can't treat {} as SmtConstraint".format(type(constraint).__name__)
 
     lines = []
 
@@ -120,7 +123,7 @@ class Or(VarArgOp):
 
 class Not(SmtConstraint):
     def __init__(self, constraint, sl_expr = None, description = None):
-        self.constraint = constraint
+        self.constraint = as_constraint(constraint)
         self.sl_expr = sl_expr
         self.description = description
 
