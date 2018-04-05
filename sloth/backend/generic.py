@@ -56,7 +56,7 @@ class Set:
         return "{} : SET({})".format(self.ref, self.elem_sort)
 
     @staticmethod
-    def get_empty(self):
+    def get_empty(elem_sort):
         """Return encoding of an empty set"""
         raise NotImplementedError("")
 
@@ -98,6 +98,10 @@ class Set:
 
     def union_of(self, part1, part2):
         """Return constraint expressing that `self` is the union of `part1` and `part2`"""
+        raise NotImplementedError("")
+
+    def union_of_all(self, *parts):
+        """Return constraint expressing that `self` is the union of all `parts`"""
         raise NotImplementedError("")
 
     def union_without_elem(self, part1, part2, elem):

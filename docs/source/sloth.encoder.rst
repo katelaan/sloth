@@ -20,10 +20,26 @@ sloth.encoder.astutils module
     :undoc-members:
     :show-inheritance:
 
+sloth.encoder.constraints module
+--------------------------------
+
+.. automodule:: sloth.encoder.constraints
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 sloth.encoder.constset module
 -----------------------------
 
 .. automodule:: sloth.encoder.constset
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+sloth.encoder.direct module
+---------------------------
+
+.. automodule:: sloth.encoder.direct
     :members:
     :undoc-members:
     :show-inheritance:

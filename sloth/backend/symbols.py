@@ -30,6 +30,7 @@ from . import struct
 if_decl = z3.If(True, True, True).decl()
 or_decl = z3.Or(True, True).decl()
 and_decl = z3.And(True, True).decl()
+implies_decl = z3.Implies(True, True).decl()
 xor_decl = z3.Xor(True, True).decl()
 not_decl = z3.Not(True).decl()
 

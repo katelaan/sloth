@@ -26,6 +26,14 @@ class LambdaSet(generic.Set):
     def get_empty(elem_sort):
         return LambdaSet(z3.K(elem_sort.ref, False), elem_sort)
 
+    @staticmethod
+    def to_set(elem_sort, *elems):
+        """Return encoding of a set the contains the given elements."""
+        res = LambdaSet.get_empty(elem_sort)
+        for elem in elems:
+            res = res.insert(elem)
+        return res
+
     def _empty(self):
         return LambdaSet.get_empty(self.elem_sort)
 
@@ -48,16 +56,31 @@ class LambdaSet(generic.Set):
         return z3.Select(self.ref, elem)
 
     def subset_of(self, other):
-        return other.ref == z3.Map(symbols.or_decl, self.ref, other.ref)
+        return other.ref == z3.Map(symbols.implies_decl, self.ref, other.ref)
+        #return other.ref == z3.Map(symbols.or_decl, self.ref, other.ref)
 
     def disjoint_from(self, other):
-        return self._empty().ref == z3.Map(symbols.and_decl, self.ref, other.ref)
+        return self._empty().ref == LambdaSet._map_intersection(self, other)
 
     def is_identical(self, other):
         return self.ref == other.ref
 
     def union_of(self, part1, part2):
-        return self.ref == z3.Map(symbols.or_decl, part1.ref, part2.ref)
+        return self.ref == LambdaSet._map_union(part1, part2)
+
+    @staticmethod
+    def _map_intersection(left, right):
+        return z3.Map(symbols.and_decl, left.ref, right.ref)
+
+    @staticmethod
+    def _map_union(left, right):
+        return z3.Map(symbols.or_decl, left.ref, right.ref)
+
+    def is_union_of_all(self, *parts):
+        assert(len(parts) >= 2)
+        while len(parts) >= 2:
+            parts = (LambdaSet(LambdaSet._map_union(parts[0], parts[1]), self.elem_sort),) + parts[2:]
+        return self.ref == parts[0].ref
 
     def union_without_elem(self, part1, part2, elem):
         return z3.And(self.contains(elem),
