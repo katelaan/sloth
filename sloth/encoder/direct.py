@@ -10,6 +10,7 @@
 
 """
 
+import collections
 import itertools
 import operator
 
@@ -636,6 +637,47 @@ def binary_data_pred_holds(n, struct, z, fld, pred):
         description = 'The binary data predicate {} holds for {} descendants in {}'.format(pred, fld, z)
     )
 
-def data_preds_hold(z, preds):
-    # TODO: Do we want this global function? Depends on whether we actually create an explicit list representation of all predicates for z. (We probably should.)
-    pass
+class DataPreds:
+    def __init__(self, *preds):
+        self.unary = []
+        self.binary = {}
+        for pred in preds:
+            try:
+                fld, pred = pred
+            except TypeError:
+                fld = None
+            assert isinstance(pred, z3.ExprRef), \
+                    'Not a data predicate: {}'.format(pred)
+            if fld is None:
+                self.unary.append(pred)
+            else:
+                self.binary[fld] = pred
+
+def data_preds_hold(n, struct, z, preds):
+    unary = [unary_data_pred_holds(n, struct, z, pred)
+             for pred in preds.unary]
+    binary = [binary_data_pred_holds(n, struct, z, fld, pred)
+              for fld, fld_preds in preds.binary.items()
+              for pred in fld_preds]
+    return c.from_list(unary + binary).to_conjunction(
+        description = 'All data predicates hold')
+
+SplitEnc = collections.namedtuple('SplitEnc', 'A B')
+
+def struct_encoding(n, y, struct, preds, root, *stops):
+    assert isinstance(preds, DataPreds)
+    assert isinstance(y, FPVector)
+    z = struct.fp_sort['z'] # TODO: Ensure z is fresh!
+    cs_a = [is_struct_footprint(n, struct, z, y),
+            is_acyclic(n, struct, root, z),
+            data_preds_hold(n, struct, z, preds),
+            stop_nodes_are_ordered_leaves(n, struct, z, root, *stops)
+    ]
+    A = c.from_list(cs_a).to_conjunction('Structural encoding of list({}, {}) of size {} with data {}'.format(root, stops, n, preds))
+    cs_b = [reach(n, struct, z),
+            defn(n, struct, z, root, *stops)
+    ]
+    B = c.from_list(cs_a).to_conjunction('Footprint encoding of list({}, {}) of size {} with data {}'.format(root, stops, n, preds))
+    return SplitEnc(A, B)
+
+# TODO: Overall encoder that also includes delta
