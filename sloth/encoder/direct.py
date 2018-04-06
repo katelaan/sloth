@@ -61,10 +61,10 @@ def r(sort, k):
     """
     return z3.Function('r{}'.format(k), sort.ref, sort.ref, z3.BoolSort())
 
-def delta_sl(n, sort, structs):
-    """Define SL* heap interpretations of size at most N
+def is_bounded_heap_interpretation(n, sort, structs):
+    """Delta_SL^N: Define SL* heap interpretations of size at most N
 
-    >>> delta = delta_sl(3, LambdaBackend.make_loc_sort(None), [sl.list.struct, sl.tree.struct])
+    >>> delta = is_bounded_heap_interpretation(3, LambdaBackend.make_loc_sort(None), [sl.list.struct, sl.tree.struct])
     >>> print(delta)
     ;; Delta_SL(3)
     (And
@@ -651,7 +651,19 @@ class DataPreds:
             if fld is None:
                 self.unary.append(pred)
             else:
-                self.binary[fld] = pred
+                self.binary.setdefault(fld, []).append(pred)
+
+    def __iter__(self):
+        yield from self.unary
+        for fld, preds in self.binary.items():
+            for pred in preds:
+                yield fld, pred
+
+    def __str__(self):
+        return ', '.join(str(p) for p in self)
+
+    def __repr__(self):
+        return 'DataPreds({})'.format(self)
 
 def data_preds_hold(n, struct, z, preds):
     unary = [unary_data_pred_holds(n, struct, z, pred)
@@ -673,11 +685,20 @@ def struct_encoding(n, y, struct, preds, root, *stops):
             data_preds_hold(n, struct, z, preds),
             stop_nodes_are_ordered_leaves(n, struct, z, root, *stops)
     ]
-    A = c.from_list(cs_a).to_conjunction('Structural encoding of list({}, {}) of size {} with data {}'.format(root, stops, n, preds))
+    A = c.from_list(cs_a).to_conjunction('Structural encoding of list({}, {}) of size {} with data constraints {}'.format(root, stops, n, preds))
     cs_b = [reach(n, struct, z),
             defn(n, struct, z, root, *stops)
     ]
-    B = c.from_list(cs_a).to_conjunction('Footprint encoding of list({}, {}) of size {} with data {}'.format(root, stops, n, preds))
+    B = c.from_list(cs_a).to_conjunction('Footprint encoding of list({}, {}) of size {}'.format(root, stops, n, preds))
     return SplitEnc(A, B)
 
-# TODO: Overall encoder that also includes delta
+def bounded_encoding(n, y, structs, struct, preds, root, *stops):
+    "Top-level encoding of a formula that is a single predicate call."
+    assert struct in structs
+    sort = struct.sort
+    A, B = struct_encoding(n, y, struct, preds, root, *stops)
+    return c.And(
+        is_bounded_heap_interpretation(n, sort, structs),
+        A,
+        B
+    )
