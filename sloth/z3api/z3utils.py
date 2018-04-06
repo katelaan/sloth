@@ -91,18 +91,13 @@ def expr_fold(smt_expr, leaf, inner):
     :param leaf: Function from (constants) ExprRef to rtype
     :param inner: Function from (non-const) ExpRef and list of rtype to rtype
     """
-    #logger.info("Folding {}".format(smt_expr))
     assert(isinstance(smt_expr, z3.ExprRef))
     if z3.is_const(smt_expr):
         res = leaf(smt_expr)
-        #logger.info("Leaf result for {}: {}".format(smt_expr, res))
         return res
     else:
         folding = [expr_fold(c, leaf, inner) for c in smt_expr.children()]
-        # TODO: Why are we returning a list here?
-        res = list(inner(smt_expr, folding))
-        #logger.info("Folding result from {} into inner result for {}: {}".format(folding, smt_expr, res))
-        return res
+        return inner(smt_expr, folding)
 
 def partial_expr_fold(smt_expr, is_leaf, leaf, inner):
     """Folding the given expression tree by applying the leaf function to each subtree that satisfies the `is_leaf` predicate, and applying inner further up the tree."""

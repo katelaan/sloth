@@ -3,6 +3,7 @@ import textwrap
 
 import z3
 
+from .. import serialization
 from ..backend import symbols
 from ..utils import utils
 
@@ -58,8 +59,32 @@ class SmtConstraint:
     def to_z3_expr(self):
         raise NotImplementedError('')
 
-def pretty_print(constraint, indent = '  '):
-    # TODO: Return valid SMT2 expression? (by rewriting operators to lower case etc.)
+def to_commented_z3_string(constraint):
+    "Convert `constraint` into the SMTLIB variant supported by z3"
+    def pretty_print_op(constraint):
+        res = type(constraint).__name__.lower()
+        d = {
+            'implies': '=>',
+            'iff': '='
+        }
+        return d.get(res, res)
+
+    return pretty_print(constraint,
+                        pretty_print_expr = serialization.expr_to_smt2_string,
+                        pretty_print_op = pretty_print_op)
+
+def pretty_print(constraint, indent = '  ',
+                 pretty_print_expr = lambda e: '({})'.format(e),
+                 pretty_print_op = lambda c : type(c).__name__):
+    """Pretty-print the constraint.
+
+    By default, uses representation close to the z3 python notation
+    rather than returning a valid smt2lib string.
+
+    See :func:`to_commented_z3_string` for a wrapper that changes the
+    behavior to genrate SMTLIB strings instead.
+
+    """
     assert isinstance(constraint, SmtConstraint), "Can't treat {} as SmtConstraint".format(type(constraint).__name__)
 
     lines = []
@@ -70,10 +95,9 @@ def pretty_print(constraint, indent = '  '):
         lines.append(';; ' + constraint.description)
 
     if constraint.is_leaf():
-        lines.append('(' + str(constraint.to_z3_expr()) + ')')
+        lines.append(pretty_print_expr(constraint.to_z3_expr()))
     else:
-        #lines.append('(' + type(constraint).__name__.lower())
-        lines.append('(' + type(constraint).__name__)
+        lines.append('(' + pretty_print_op(constraint))
         try:
             it = iter(constraint)
         except (AttributeError, NotImplementedError):
@@ -81,7 +105,7 @@ def pretty_print(constraint, indent = '  '):
             raise utils.SlothException(msg) from None
         else:
             for child in constraint:
-                child_str = pretty_print(child, indent)
+                child_str = pretty_print(child, indent, pretty_print_expr, pretty_print_op)
                 lines.append(textwrap.indent(child_str, indent))
         lines.append(')')
 
@@ -89,6 +113,7 @@ def pretty_print(constraint, indent = '  '):
 
 class BaseConstraint(SmtConstraint):
     def __init__(self, constraint, sl_expr = None, description = None):
+        assert isinstance(constraint, z3.ExprRef)
         self.constraint = constraint
         self.sl_expr = sl_expr
         self.description = description
@@ -101,7 +126,6 @@ class BaseConstraint(SmtConstraint):
 
     def to_z3_expr(self):
         return self.constraint
-
 
 class VarArgOp(SmtConstraint):
     def __init__(self, *constraints, sl_expr = None, description = None):
@@ -155,3 +179,9 @@ class Implies(BinOp):
 
 class Iff(BinOp):
     op = operator.eq
+
+
+class Z3Input:
+    def __init__(self, constraint, decls = None):
+        self.constraint = constraint
+        self.decls = decls
