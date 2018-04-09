@@ -22,7 +22,21 @@ from z3 import And, Not, Or
 from ..utils import utils
 from . import constraints as c
 from . import slast
+from . import astbuilder
 from .shared import *
+
+def model_of_sl_expr(structs, sl_expr):
+    # TODO: Getting a model should be in a different module
+    from .. import z3api
+    e = encode_sl_expr(structs, sl_expr)
+    if z3api.is_sat(e.to_z3_expr()):
+        return e.label_model(z3api.model())
+    else:
+        return None
+
+def encode_sl_expr(structs, sl_expr):
+    config = EncoderConfig(structs)
+    return encode_ast(config, astbuilder.ast(structs, sl_expr))
 
 class EncoderConfig:
     def __init__(self, structs, call_encoder_fn = None, global_encoder_fn = None, bounds_by_struct = None):

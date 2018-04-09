@@ -4,6 +4,22 @@ sloth.model package
 Submodules
 ----------
 
+sloth.model.checks module
+-------------------------
+
+.. automodule:: sloth.model.checks
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+sloth.model.graph module
+------------------------
+
+.. automodule:: sloth.model.graph
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 sloth.model.model module
 ------------------------
 

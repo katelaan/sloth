@@ -52,7 +52,6 @@ class StructModel:
             if True: #False:
                 unsorted_fps = [(c,list(self.footprint(c))) for c in self.fp_consts()]
                 # TODO: CL option to include FPs in model
-                # TODO: To figure out the FP mess, we might want to show empty ones as well
                 #nonempty_fps = [(c,f) for (c,f) in unsorted_fps if f]
                 #fps = sorted(nonempty_fps, key=lambda f : -len(f[1]))
                 fps = sorted(unsorted_fps, key=lambda f : -len(f[1]))
@@ -102,6 +101,16 @@ class StructModel:
                 if self.z3_model.eval(arr[loc]):
                     yield loc
 
+    def is_alloced(self, loc, fld):
+        # TODO: Allocation check is very brittle - it immediately fails when the global FP name is changed in the encoding. At the very least this should be somewhere in the config
+        match = None
+        for fp in self.locs.fp_consts:
+            if str(fp) == 'X' + fld:
+                match = fp
+                break
+        assert match is not None
+        return loc in self.footprint(match)
+
     def _init_func_wrappers(self):
         self.funcs = { fld : model_utils.FuncWrapper(self.z3_model, self.struct.heap_fn(fld))
                        for fld in self.struct.fields }
@@ -129,10 +138,10 @@ class SmtModel:
         logger.info("Constructing adapter for Z3 model")
         logger.debug("Model: {}".format(z3_model))
         self.structs = structs
-        self._struct_models = { s : StructModel(s, const_registry, z3_model) for s in structs}
+        self.struct_models = { s : StructModel(s, const_registry, z3_model) for s in structs}
         # FIXME: This breaks for the lambda backend if we have multiple sorts
         self.node_labeling = utils.merge_dicts(
-        *[self._struct_models[s].tagged_locs() for s in self.structs]
+        *[self.struct_models[s].tagged_locs() for s in self.structs]
         )
         model_consts = list(model_utils.constants(z3_model))
         logger.debug("All constants in model: {}".format(model_consts))
@@ -152,7 +161,7 @@ class SmtModel:
 
     def __len__(self):
         """Total number of locations in all sorts combined."""
-        return sum(len(self._struct_models[s]) for s in self.structs)
+        return sum(len(self.struct_models[s]) for s in self.structs)
 
     def __iter__(self):
         """Iterate over the typed locations."""
@@ -160,7 +169,7 @@ class SmtModel:
             yield typed_loc
 
     def __repr__(self):
-        ordered_models = sorted(self._struct_models.items(),
+        ordered_models = sorted(self.struct_models.items(),
                                 key = lambda s : s[0].name)
         struct_strs = (str(s[1]) for s in ordered_models)
         data_str = ", ".join(["{}={}".format(*i) for i in self.data.items()])
@@ -177,7 +186,7 @@ class SmtModel:
 
     def struct_model(self, struct):
         """Return the interpretation of the given structure."""
-        return self._struct_models[struct]
+        return self.struct_models[struct]
 
     def val_of(self, const):
         """Return the value of the given constant in the model."""
@@ -191,7 +200,7 @@ class SmtModel:
         if struct is None:
             return len(self)
         else:
-            return len(self._struct_models[struct])
+            return len(self.struct_models[struct])
 
     def locs(self, struct = None):
         """Generator for locations in the model.
@@ -201,11 +210,11 @@ class SmtModel:
 
         """
         if struct is None:
-            for m in self._struct_models.values():
+            for m in self.struct_models.values():
                 for loc in m:
                     yield loc
         else:
-            for loc in self._struct_models[struct]:
+            for loc in self.struct_models[struct]:
                 yield loc
 
     def typed_locs(self):
@@ -215,15 +224,15 @@ class SmtModel:
         references to the structure to which they belong. Including
         these references is necessary in the lambda backend, where
         locations are plain integers, so just looking at a location
-        doesn't tell you to which structure they belong.
+        doesn't tell you to which structure it belongs.
         """
-        for s, m in self._struct_models.items():
+        for s, m in self.struct_models.items():
             for loc in m:
                 yield tag(s)(loc)
 
     def null_node(self, struct):
         """Return the null node of the given struct."""
-        return self._struct_models[struct].null()
+        return self.struct_models[struct].null()
 
     def loc_consts(self, struct = None):
         """Return list of all location consts in the given structure.
@@ -233,9 +242,9 @@ class SmtModel:
 
         """
         if struct is None:
-            return utils.flatten(self._struct_models[s].loc_consts() for s in self.structs)
+            return utils.flatten(self.struct_models[s].loc_consts() for s in self.structs)
         else:
-            return self._struct_models[struct].loc_consts()
+            return self.struct_models[struct].loc_consts()
 
     def fp_consts(self, struct = None):
         """Return list of all footptins consts in the given structure.
@@ -245,9 +254,9 @@ class SmtModel:
 
         """
         if struct is None:
-            return utils.flatten(self._struct_models[s].fp_consts() for s in self.structs)
+            return utils.flatten(self.struct_models[s].fp_consts() for s in self.structs)
         else:
-            return self._struct_models[struct].fp_consts()
+            return self.struct_models[struct].fp_consts()
 
     def heap_fn(self, struct, fld):
         """Return the interpretation of a heap function.
@@ -258,7 +267,7 @@ class SmtModel:
 
         """
         assert(isinstance(fld, str))
-        return self._struct_models[struct].heap_fn(fld)
+        return self.struct_models[struct].heap_fn(fld)
 
     def footprint(self, struct, fp_const):
         """Return the interpretation of the given footprint constant.
@@ -269,4 +278,4 @@ class SmtModel:
 
         """
         assert(fp_const.sort() == struct.fp_sort.ref)
-        return self._struct_models[struct].footprint(fp_const)
+        return self.struct_models[struct].footprint(fp_const)
