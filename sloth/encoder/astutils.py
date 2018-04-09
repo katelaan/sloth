@@ -41,6 +41,19 @@ def consts_by_struct(ast, structs):
     fold(f_inner, f_leaf, ast)
     return d_aux
 
+def data_consts(ast):
+
+    s_aux = set()
+    def f_inner(obj, _):
+        # All variables are in the leaves
+        pass
+    def f_leaf(obj):
+        nonlocal s_aux
+        for c in obj.data_consts():
+            s_aux.add(c)
+    fold(f_inner, f_leaf, ast)
+    return s_aux
+
 def pred_calls(ast):
     """Returns the set of all predicate calls that occur in this AST.
 

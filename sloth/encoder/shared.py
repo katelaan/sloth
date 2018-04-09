@@ -21,20 +21,20 @@ class FPVector:
         return iter(self.flds)
 
     def __len__(self):
-        return len(self.fields)
+        return len(self.flds)
 
     def all_fps(self):
         return [self[fld] for fld in self.flds]
 
     def group_by_flds(self, flds):
-        flds_fps = []
+        fld_fps = []
         other_fps = []
         for f in self:
             if f in flds:
-                fld_fps.add(self[f])
+                fld_fps.append(self[f])
             else:
-                other_fps.add(self[f])
-        return (flds_fps, other_fps)
+                other_fps.append(self[f])
+        return (fld_fps, other_fps)
 
     def fps_for_struct(self, struct, negate_result = False):
         for fld, fp in ((fld, self[fld]) for fld in self):
@@ -43,51 +43,6 @@ class FPVector:
 
     def fps_for_other_structs(self, struct):
         return self.fps_for_struct(struct, negate_result = True)
-
-# class FPVector:
-#     def __init__(self, **fps_by_field):
-#         self.fp_dict = {}
-#         for k,v in fps_by_field.items():
-#             assert isinstance(k, str)
-#             assert isinstance(v, generic.Set)
-#             self.fp_dict[k] = v
-
-#     def __getitem__(self, key):
-#         return self.fp_dict[key]
-
-#     def __iter__(self):
-#         return iter(self.fp_dict)
-
-#     def __len__(self):
-#         return len(self.fp_dict)
-
-#     def all_fps(self):
-#         return list(self.fp_dict.values())
-
-#     def group_by_flds(self, flds):
-#         flds_fps = []
-#         other_fps = []
-#         for k,v in self.fp_dict.items():
-#             if k in flds:
-#                 fld_fps.add(v)
-#             else:
-#                 other_fps.add(v)
-#         return (flds_fps, other_fps)
-
-#     def fps_for_struct(self, struct, negate_result = False):
-#         for fld, fp in sorted(self.fp_dict.items(),
-#                               key = operator.itemgetter(0)):
-#             if (fld in struct.fields) != negate_result:
-#                 yield fp
-
-#     def fps_for_other_structs(self, struct):
-#         return self.fps_for_struct(struct, negate_result = True)
-
-#     @classmethod
-#     def from_dict(cls, fp_dict):
-#         v = cls()
-#         v.fp_dict = dict(fp_dict)
-#         return v
 
 class DataPreds:
     def __init__(self, *preds):

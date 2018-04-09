@@ -6,7 +6,10 @@ import z3
 
 from .. import serialization
 from ..backend import symbols, generic
+from ..model import model
 from ..utils import utils
+from . import astutils
+from . import constset as cs
 
 class ConstraintList:
     def __init__(self):
@@ -205,8 +208,9 @@ class SmtDecls:
         return '\n'.join(all_decls)
 
 class Z3Input:
-    def __init__(self, constraint, decls = None):
+    def __init__(self, constraint, encoded_ast = None, decls = None):
         self.constraint = constraint
+        self.encoded_ast = encoded_ast
         self.decls = decls
 
     def to_smt2_string(self, check_sat = True, get_model = True):
@@ -222,6 +226,38 @@ class Z3Input:
             cmds
         )
 
+    def to_z3_expr(self):
+        return self.constraint.to_z3_expr()
+
     def to_file(self, filename):
         with open(filename, 'w') as f:
             f.write(self.to_smt2_string())
+
+    def all_consts(self):
+        """Return the set of all constants present in the encoded SL expr or introduced in the encodeing"""
+        if self.encoded_ast is None:
+            raise utils.SlothException("No SL AST defined => Can't compute constants")
+        else:
+            structs = astutils.occurring_structs(self.encoded_ast)
+            consts = cs.ConstantSet(structs)
+            consts_by_struct = astutils.consts_by_struct(self.encoded_ast, structs)
+            for struct, locs in consts_by_struct.items():
+                consts.add_loc_consts(struct, *locs)
+            consts.add_data_consts(*astutils.data_consts(self.encoded_ast))
+            #print ('Decls: {}'.format(self.decls))
+            for decl in self.decls:
+                # TODO: Properly add consts. Problem: Introduced loc/FP consts are not stored by struct. It's unclear whether we want to have per-struct FPs in the long run anyway, so we can decide what to do about this later
+                # FIXME: Non-FP consts introduced by the encoding are not added at all. Is that what we want. (it might actually be, because we don't really care about the auxiliary variables from the unfolding)
+                if isinstance(decl, generic.Set):
+                    sdecl = str(decl)
+                    for s in structs:
+                        for f in struct.fields:
+                            if sdecl.find(f) != -1:
+                                # Note that this way we add data fp vars to all structs
+                                consts.add_fp_consts(s, decl)
+
+            return consts
+
+    def label_model(self, z3model):
+        consts = self.all_consts()
+        return model.SmtModel(z3model, consts, consts.structs)

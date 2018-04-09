@@ -6,7 +6,7 @@ bookkeeping.
 .. testsetup::
 
    from sloth import *
-   from sloth.encoder.encoder import encode_ast
+   from sloth.encoder import encoder as e
    from sloth.encoder.astbuilder import processed_ast
    from sloth.encoder.slast import *
 
@@ -60,7 +60,7 @@ class PointsTo(SlAst):
     """Representation of sl.struct.pointsto(src, trg_0,...trg_k).
 
     >>> t = processed_ast(sl.structs, sl.tree.pointsto("a", "b", "c"))
-    >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
+    >>> e.encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
     Encoding[...]
 
     """
@@ -93,10 +93,10 @@ class PointsToSingleField(SlAst):
     """Representation of sl.struct.fld(src, trg).
 
     >>> t = processed_ast(sl.structs, sl.list.next("a", "b"))
-    >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
+    >>> e.encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
     Encoding[...]
     >>> t = processed_ast(sl.structs, sl.list.data("a", "b"))
-    >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
+    >>> e.encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
     Encoding[...]
 
     """
@@ -221,7 +221,7 @@ class DataAtom(SlAst):
 
     >>> a = Int("a")
     >>> t = processed_ast(sl.structs, a < 42)
-    >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
+    >>> e.encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
     Encoding[...]
 
     """
@@ -287,7 +287,7 @@ class SepCon(BinOp):
 
     >>> expr = sl.sepcon(sl.list.pointsto("a", "b"), sl.list.pointsto("b", "c"))
     >>> t = processed_ast(sl.structs, expr)
-    >>> encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
+    >>> e.encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
     Encoding[...]
 
     """

@@ -1,26 +1,53 @@
 """Encoding of non-call SL formulas.
 
-.. testsetup:
+.. testsetup::
 
    from sloth import *
+   from sloth.z3api import *
+   from sloth.encoder import astbuilder
    from sloth.encoder.topdown import *
 
 We test the encoder for formulas that do not contain calls. Formulas
 with calls are tested separately for each call encoding.
 
->>> sts = sl.structs
->>> config = EncoderConfig()
+>>> sts = [sl.list.struct, sl.tree.struct]; config = EncoderConfig(sts); as_ast = astbuilder.ast
+
 
 """
-
 
 import functools
 
 from z3 import And, Not, Or
 
+from ..utils import utils
 from . import constraints as c
 from . import slast
 from .shared import *
+
+class EncoderConfig:
+    def __init__(self, structs, call_encoder_fn = None, global_encoder_fn = None, bounds_by_struct = None):
+        self.structs = structs
+        # From set to avoid duplicate fields (data occurs in every struct!)
+        self.flds = list(sorted({f for s in structs for f in s.fields}))
+        if structs[0].fp_sort != structs[-1].fp_sort:
+            # To ensure this crashes early with the quantified backend
+            raise utils.SlothException("Can't use encoder config with quantified backend.")
+        self.fp_sort = structs[0].fp_sort
+        self.call_encoder_fn = call_encoder_fn
+        self.global_encoder_fn = global_encoder_fn
+        self.bounds_by_struct = bounds_by_struct
+        self.next_fp_ix = 0
+
+    prefix = 'Y'
+
+    def _fp_name(self, i, fld):
+        return EncoderConfig.prefix + str(self.next_fp_ix) + fld
+
+    def get_fresh_fpvector(self, used):
+        while self._fp_name(self.next_fp_ix, self.flds[0]) in used:
+            self.next_fp_ix += 1
+        return FPVector(self.fp_sort, self._fp_name(self.next_fp_ix, ''), self.flds)
+
 
 def as_split_constraints(A, B, ast, fresh = None):
     expr = ast.to_sl_expr()
@@ -32,33 +59,32 @@ def as_split_constraints(A, B, ast, fresh = None):
         fresh = set()
     return SplitEnc(A, B, fresh)
 
-class EncoderConfig:
-    def __init__(self, call_encoder_fn = None, global_encoder_fn = None, bounds_by_struct = None):
-        self.call_encoder_fn = call_encoder_fn
-        self.global_encoder_fn = global_encoder_fn
-        self.bounds_by_struct = bounds_by_struct
-
-def fresh(used):
-    pass
-
 def encode_ast(config, ast):
-    A, B, Z = encode_boolean(config, set(), ast)
+    X = FPVector(config.fp_sort, 'X', config.flds)
+    A, B, Z = encode_boolean(config, X, set(), ast)
     cs = [A,B]
-    if config.global_encoder is not None:
-        cs.append(config.global_encoder())
-    return c.And(*cs)
+    if config.global_encoder_fn is not None:
+        cs.append(config.global_encoder_fn())
+    # TODO: Is it correct to include the global constraint in Z?
+    return c.Z3Input(constraint = c.And(*cs),
+                     decls = Z.union(X.all_fps()),
+                     encoded_ast = ast)
 
-def encode_boolean(config, used_fps, ast):
+def encode_boolean(config, X, used_fps, ast):
     type_ = type(ast)
-    if type_ is encoder.SlAnd:
-        return encode_and(config, used_fps, ast)
-    elif type_ is encoder.SlOr:
-        return encode_or(config, used_fps, ast)
-    elif type_ is encoder.SlNot:
-        return encode_not(config, used_fps, ast)
+    if type_ is slast.SlAnd:
+        return encode_and(config, X, used_fps, ast)
+    elif type_ is slast.SlOr:
+        return encode_or(config, X, used_fps, ast)
+    elif type_ is slast.SlNot:
+        return encode_not(config, X, used_fps, ast)
     else:
-        Y = fresh(used_fps)
-        return encode_spatial(config, ast, Y)
+        Y = config.get_fresh_fpvector(used_fps)
+        A1, B, Z1 = encode_spatial(config, ast, Y)
+        A = c.And(A1, *all_equal(Y, X),
+                  description = 'Connecting spatial formula to global constraint')
+        Z = Z1.union(Y.all_fps())
+        return SplitEnc(A, B, Z)
 
 def encode_spatial(config, ast, Y):
     type_ = type(ast)
@@ -106,7 +132,7 @@ def encode_pto(pto, Y):
     flds = struct.points_to_fields
     alloced, empty = Y.group_by_flds(flds)
     assert len(alloced) == len(flds)
-    assert len(flds) == len(trg)
+    assert len(flds) == len(trgs)
     A = c.And(Not(src == struct.null),
               *(trg == struct.heap_fn(fld)(src) for fld, trg in zip(flds, trgs)))
     B = c.And(*(fp.is_singleton(src) for fp in alloced),
@@ -118,6 +144,11 @@ def all_disjoint(Y1, Y2):
     for fld in Y1:
         yield Y1[fld].disjoint_from(Y2[fld])
 
+def all_equal(Y1, Y2):
+    assert len(Y1) == len(Y2)
+    for fld in Y1:
+        yield Y1[fld].is_identical(Y2[fld])
+
 def all_union(Y, Y1, Y2):
     assert len(Y1) == len(Y2) and len(Y) == len(Y1)
     for fld in Y:
@@ -125,10 +156,10 @@ def all_union(Y, Y1, Y2):
 
 def encode_sepcon(sc, config, Y):
     used = set(Y.all_fps())
-    Y1 = fresh(used)
+    Y1 = config.get_fresh_fpvector(used)
     A1, B1, Z1 = encode_spatial(sc.left, config, Y1)
     used.update(Z1)
-    Y2 = fresh(used)
+    Y2 = config.get_fresh_fpvector(used)
     A2, B2, Z2 = encode_spatial(sc.right, config, Y2)
 
     disjointness = c.And(*all_disjoint(Y1, Y2),
@@ -138,20 +169,20 @@ def encode_sepcon(sc, config, Y):
     union = c.And(*all_union(Y, Y1, Y2),
                   description = 'Sepcon operand footprints combine into global footprint')
     B = c.And(B1, B2, union)
-    return as_split_constraints(A, B, sc, fresh = Z1.union(Z2).union(Y1).union(Y2))
+    return as_split_constraints(A, B, sc, fresh = Z1.union(Z2).union(Y1.all_fps()).union(Y2.all_fps()))
 
-encode_and = functools.partial(encode_binop, c.And)
-encode_or = functools.partial(encode_binop, c.Or)
-
-def encode_binopop(op, config, used_fps, ast):
-    A1, B1, Z1 = encode_boolean(config, used_fps, ast.left)
+def encode_binop(op, config, X, used_fps, ast):
+    A1, B1, Z1 = encode_boolean(config, X, used_fps, ast.left)
     used_fps = used_fps.union(Z1)
-    A2, B2, Z2 = encode_boolean(config, used_fps, ast.right)
+    A2, B2, Z2 = encode_boolean(config, X, used_fps, ast.right)
     A = op(A1, A2)
     B = c.And(B1, B2)
     return as_split_constraints(A, B, ast, fresh = Z1.union(Z2))
 
-def encode_not(config, used_fps, ast):
-    A1, B, Z = encode_boolean(config, used_fps, ast.arg)
+encode_and = functools.partial(encode_binop, c.And)
+encode_or = functools.partial(encode_binop, c.Or)
+
+def encode_not(config, X, used_fps, ast):
+    A1, B, Z = encode_boolean(config, X, used_fps, ast.arg)
     A = c.Not(A1)
     return as_split_constraints(A, B, ast, fresh = Z)

@@ -84,6 +84,14 @@ sloth.encoder.preproc module
     :undoc-members:
     :show-inheritance:
 
+sloth.encoder.shared module
+---------------------------
+
+.. automodule:: sloth.encoder.shared
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 sloth.encoder.slast module
 --------------------------
 
@@ -104,6 +112,14 @@ sloth.encoder.strategy module
 -----------------------------
 
 .. automodule:: sloth.encoder.strategy
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+sloth.encoder.topdown module
+----------------------------
+
+.. automodule:: sloth.encoder.topdown
     :members:
     :undoc-members:
     :show-inheritance:

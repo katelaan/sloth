@@ -32,6 +32,16 @@ class SlSort:
         self.ref = ref
         self.set_class = set_class
 
+    def __eq__(self, other):
+        try:
+            return self.ref == other.ref
+        except:
+            return False
+
+    def __hash__(self):
+        # TODO: Proper hash for sorts? (Currently simply negating the ref to ensure the hash is different from the one for the wrapped z3 sort)
+        return ~hash(self.ref)
+
     def to_declare(self):
         """Must this sort be declared in the SMT2 encoding?"""
         raise NotImplementedError("Not specified whether sort must be declared")
@@ -130,6 +140,16 @@ class SetSort:
         assert(isinstance(name, str))
         set_ref = array(name, self.elem_sort.ref, z3.BoolSort())
         return self.set_class(set_ref, self.elem_sort)
+
+    def __eq__(self, other):
+        try:
+            return self.elem_sort == other.elem_sort
+        except:
+            return False
+
+    def __hash__(self):
+        # TODO: Proper hash for sorts? (Currently simply negating the ref to ensure the hash is different from the one for the wrapped z3 sort)
+        return ~hash(self.elem_sort)
 
 class LocInterpretation:
     """Interpretation of a location sort in a z3 model.

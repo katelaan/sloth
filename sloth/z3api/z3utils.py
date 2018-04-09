@@ -19,12 +19,9 @@ from ..utils import logger
 # High-level solver interaction
 ###############################################################################
 
-_solver = None
+_solver = z3.Solver()
 
 def Solver():
-    global _solver
-    if _solver is None:
-        _solver = z3.Solver()
     return _solver
 
 def is_sat(expr):
