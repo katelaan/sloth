@@ -2,16 +2,25 @@
 
 .. testsetup::
 
+   import functools
+   import z3
    from sloth import *
-   from sloth.z3api import *
-   from sloth.encoder import astbuilder
    from sloth.encoder.topdown import *
+   from sloth.model.checks import evaluate_to_graph
 
 We test the encoder for formulas that do not contain calls. Formulas
 with calls are tested separately for each call encoding.
 
->>> sts = [sl.list.struct, sl.tree.struct]; config = EncoderConfig(sts); as_ast = astbuilder.ast
-
+>>> sts = [sl.list.struct, sl.tree.struct]; eval_ = functools.partial(evaluate_to_graph, sts)
+>>> x, y, z = sl.list.locs('x y z'); t, u, v, w = sl.tree.locs('t u v w'); d, e, f = z3.Ints('d e f')
+>>> eval_(sl.list.pointsto(x, y))
+Graph({0, 1}, {(0, 'next'): 1}, {'x': 0, 'y': 1})
+>>> eval_(sl.tree.pointsto(t, u, v))
+Graph({0, 1, 2}, {(0, 'left'): 1, (0, 'right'): 2}, {'t': 0, 'u': 1, 'v': 2})
+>>> eval_(sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z)))
+Graph({0, 1, 2}, {(0, 'next'): 1, (1, 'next'): 2}, {'x': 0, 'y': 1, 'z': 2})
+>>> eval_(sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null)))
+Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3})
 
 """
 
