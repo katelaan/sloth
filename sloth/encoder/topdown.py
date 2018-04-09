@@ -43,9 +43,8 @@ class EncoderConfig:
     def _fp_name(self, i, fld):
         return EncoderConfig.prefix + str(self.next_fp_ix) + fld
 
-    def get_fresh_fpvector(self, used):
-        while self._fp_name(self.next_fp_ix, self.flds[0]) in used:
-            self.next_fp_ix += 1
+    def get_fresh_fpvector(self):
+        self.next_fp_ix += 1
         return FPVector(self.fp_sort, self._fp_name(self.next_fp_ix, ''), self.flds)
 
 
@@ -61,7 +60,8 @@ def as_split_constraints(A, B, ast, fresh = None):
 
 def encode_ast(config, ast):
     X = FPVector(config.fp_sort, 'X', config.flds)
-    A, B, Z = encode_boolean(config, X, set(), ast)
+    config.next_fp_ix = 0 # Reset the next free FP id to 0 for consistent naming
+    A, B, Z = encode_boolean(config, X, ast)
     cs = [A,B]
     if config.global_encoder_fn is not None:
         cs.append(config.global_encoder_fn())
@@ -70,16 +70,16 @@ def encode_ast(config, ast):
                      decls = Z.union(X.all_fps()),
                      encoded_ast = ast)
 
-def encode_boolean(config, X, used_fps, ast):
+def encode_boolean(config, X, ast):
     type_ = type(ast)
     if type_ is slast.SlAnd:
-        return encode_and(config, X, used_fps, ast)
+        return encode_and(config, X, ast)
     elif type_ is slast.SlOr:
-        return encode_or(config, X, used_fps, ast)
+        return encode_or(config, X, ast)
     elif type_ is slast.SlNot:
-        return encode_not(config, X, used_fps, ast)
+        return encode_not(config, X, ast)
     else:
-        Y = config.get_fresh_fpvector(used_fps)
+        Y = config.get_fresh_fpvector()
         A1, B, Z1 = encode_spatial(config, ast, Y)
         A = c.And(A1, *all_equal(Y, X),
                   description = 'Connecting spatial formula to global constraint')
@@ -154,13 +154,11 @@ def all_union(Y, Y1, Y2):
     for fld in Y:
         yield Y[fld].union_of(Y1[fld], Y2[fld])
 
-def encode_sepcon(sc, config, Y):
-    used = set(Y.all_fps())
-    Y1 = config.get_fresh_fpvector(used)
-    A1, B1, Z1 = encode_spatial(sc.left, config, Y1)
-    used.update(Z1)
-    Y2 = config.get_fresh_fpvector(used)
-    A2, B2, Z2 = encode_spatial(sc.right, config, Y2)
+def encode_sepcon(config, sc, Y):
+    Y1 = config.get_fresh_fpvector()
+    A1, B1, Z1 = encode_spatial(config, sc.left, Y1)
+    Y2 = config.get_fresh_fpvector()
+    A2, B2, Z2 = encode_spatial(config, sc.right, Y2)
 
     disjointness = c.And(*all_disjoint(Y1, Y2),
                          description = 'Sepcon operands have disjoint footprints')
@@ -171,10 +169,9 @@ def encode_sepcon(sc, config, Y):
     B = c.And(B1, B2, union)
     return as_split_constraints(A, B, sc, fresh = Z1.union(Z2).union(Y1.all_fps()).union(Y2.all_fps()))
 
-def encode_binop(op, config, X, used_fps, ast):
-    A1, B1, Z1 = encode_boolean(config, X, used_fps, ast.left)
-    used_fps = used_fps.union(Z1)
-    A2, B2, Z2 = encode_boolean(config, X, used_fps, ast.right)
+def encode_binop(op, config, X, ast):
+    A1, B1, Z1 = encode_boolean(config, X, ast.left)
+    A2, B2, Z2 = encode_boolean(config, X, ast.right)
     A = op(A1, A2)
     B = c.And(B1, B2)
     return as_split_constraints(A, B, ast, fresh = Z1.union(Z2))
@@ -182,7 +179,7 @@ def encode_binop(op, config, X, used_fps, ast):
 encode_and = functools.partial(encode_binop, c.And)
 encode_or = functools.partial(encode_binop, c.Or)
 
-def encode_not(config, X, used_fps, ast):
-    A1, B, Z = encode_boolean(config, X, used_fps, ast.arg)
+def encode_not(config, X, ast):
+    A1, B, Z = encode_boolean(config, X, ast.arg)
     A = c.Not(A1)
     return as_split_constraints(A, B, ast, fresh = Z)
