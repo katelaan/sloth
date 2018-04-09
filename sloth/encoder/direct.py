@@ -10,16 +10,15 @@
 
 """
 
-import collections
 import itertools
-import operator
 
 import z3
 
-from . import constraints as c
 from ..backend import LambdaBackend, generic, lambdas, symbols
 from ..utils import utils
 from ..z3api import rewriter
+from . import constraints as c
+from .shared import *
 
 def non_identical(x_i, x_j):
     # For some reason x_i is not x_j doesn't appear to do the right thing
@@ -395,39 +394,10 @@ def is_acyclic(n, struct, root, z):
         description = 'acyclic_N: No cycles in the structure induced by {}'.format(z)
     )
 
-class FPVector:
-    def __init__(self, **fps_by_field):
-        self.fp_dict = {}
-        for k,v in fps_by_field.items():
-            assert isinstance(k, str)
-            assert isinstance(v, generic.Set)
-            self.fp_dict[k] = v
-
-    def __getitem__(self, key):
-        return self.fp_dict[key]
-
-    def get_all(self):
-        return list(self.fp_dict.values())
-
-    def fps_for_struct(self, struct, negate_result = False):
-        for fld, fp in sorted(self.fp_dict.items(),
-                              key = operator.itemgetter(0)):
-            if (fld in struct.fields) != negate_result:
-                yield fp
-
-    def fps_for_other_structs(self, struct):
-        return self.fps_for_struct(struct, negate_result = True)
-
-    @classmethod
-    def from_dict(cls, fp_dict):
-        v = cls()
-        v.fp_dict = dict(fp_dict)
-        return v
-
 def is_struct_footprint(n, struct, z, y):
     """Tie `z` to the global footprint vector `y`
 
-    >>> y = FPVector(next = fpsort['Ynext'], left = fpsort['Yleft'], right = fpsort['Yright'], data = fpsort['Ydata'])
+    >>> y = FPVector(fpsort, prefix = 'Y', flds = 'next left right data'.split())
     >>> print(is_struct_footprint(3, sl.tree.struct, z, y))
     ;; z : SET(Int) equals the global footprints for sl.tree
     (And
@@ -653,34 +623,6 @@ def binary_data_pred_holds(n, struct, z, fld, pred):
         description = 'The binary data predicate {} holds for {} descendants in {}'.format(pred, fld, z)
     )
 
-class DataPreds:
-    def __init__(self, *preds):
-        self.unary = []
-        self.binary = {}
-        for pred in preds:
-            try:
-                fld, pred = pred
-            except TypeError:
-                fld = None
-            assert isinstance(pred, z3.ExprRef), \
-                    'Not a data predicate: {}'.format(pred)
-            if fld is None:
-                self.unary.append(pred)
-            else:
-                self.binary.setdefault(fld, []).append(pred)
-
-    def __iter__(self):
-        yield from self.unary
-        for fld, preds in self.binary.items():
-            for pred in preds:
-                yield fld, pred
-
-    def __str__(self):
-        return ', '.join(str(p) for p in self)
-
-    def __repr__(self):
-        return 'DataPreds({})'.format(self)
-
 def data_preds_hold(n, struct, z, preds):
     unary = [unary_data_pred_holds(n, struct, z, pred)
              for pred in preds.unary]
@@ -689,8 +631,6 @@ def data_preds_hold(n, struct, z, preds):
               for pred in fld_preds]
     return c.from_list(unary + binary).to_conjunction(
         description = 'All data predicates hold')
-
-SplitEnc = collections.namedtuple('SplitEnc', 'A B')
 
 def struct_encoding(n, y, struct, z, preds, root, *stops):
     assert isinstance(preds, DataPreds)
@@ -705,13 +645,13 @@ def struct_encoding(n, y, struct, z, preds, root, *stops):
             defn(n, struct, z, root, *stops)
     ]
     B = c.from_list(cs_a).to_conjunction('Footprint encoding of list({}, {}) of size {}'.format(root, stops, n, preds))
-    return SplitEnc(A, B)
+    return SplitEnc(A, B, [z] + list(rs(struct.sort, n)))
 
 def bounded_encoding(n, y, structs, struct, z, preds, root, *stops):
     "Top-level encoding of a formula that is a single predicate call."
     assert struct in structs
     sort = struct.sort
-    A, B = struct_encoding(n, y, struct, z, preds, root, *stops)
+    A, B, Z = struct_encoding(n, y, struct, z, preds, root, *stops)
     return c.And(
         is_bounded_heap_interpretation(n, sort, structs),
         A,
@@ -725,7 +665,7 @@ def z3_input(n, y, structs, struct, preds, root, *stops):
               + list(stops)
               + [struct.null for struct in structs]
               + [z]
-              + y.get_all()
+              + y.all_fps()
               + list(xs(struct.sort, n))
               + list(Xs(struct.sort, structs)))
     funs = itertools.chain(*(s.heap_fns() for s in structs),
