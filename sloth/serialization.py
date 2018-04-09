@@ -9,29 +9,31 @@ from .z3api import z3utils
 # Serialize Declarations
 ###############################################################################
 
-def _smt_sort_str(sort):
-    assert(isinstance(sort, z3.SortRef))
-    #print('{} is array {}'.format(sort.__class__, is_array(sort)))
+def smt_sort_str(sort):
+    assert isinstance(sort, z3.SortRef), \
+        "Received {} of type {} != SortRef".format(c, type(c).__name__)
     if z3utils.is_array_sort(sort):
-        return '(Array {} {})'.format(_smt_sort_str(sort.domain()), _smt_sort_str(sort.range()))
+        return '(Array {} {})'.format(smt_sort_str(sort.domain()), smt_sort_str(sort.range()))
     else:
         return sort.name()
 
-def _smt_const_decl(c):
-    assert(isinstance(c, z3.ExprRef))
+def smt_const_decl(c):
+    assert isinstance(c, z3.ExprRef), \
+        "Received {} of type {} != ExprRef".format(c, type(c).__name__)
     assert(c.decl().arity() == 0)
-    return '(declare-fun {} () {})'.format(c, _smt_sort_str(c.decl().range()))
+    return '(declare-fun {} () {})'.format(c, smt_sort_str(c.decl().range()))
 
-def _smt_list(ls):
+def smt_list(ls):
     return '({})'.format(' '.join(ls))
 
-def _smt_fun_decl(f):
-    assert(isinstance(f, z3.FuncDeclRef))
-    dom = _smt_list([_smt_sort_str(f.domain(i)) for i in range(0,f.arity())])
-    rng = _smt_sort_str(f.range())
+def smt_fun_decl(f):
+    assert isinstance(f, z3.FuncDeclRef), \
+        "Received {} of type {} != FuncDeclRef".format(f, type(f).__name__)
+    dom = smt_list([smt_sort_str(f.domain(i)) for i in range(0,f.arity())])
+    rng = smt_sort_str(f.range())
     return '(declare-fun {} {} {})'.format(f, dom, rng)
 
-def _smt_sort_decl(sort):
+def smt_sort_decl(sort):
     return '(declare-sort {} 0)'.format(sort)
 
 ###############################################################################
@@ -45,7 +47,7 @@ def translate_head_func_decl(expr):
     if s == '==': return '='
     elif z3.is_K(expr): #s == 'K':
         # Const array => Must include type
-        return '(as const {})'.format(_smt_sort_str(decl.range()))
+        return '(as const {})'.format(smt_sort_str(decl.range()))
     elif z3.is_map(expr):
         # FIXME: Not general enough for data maps?
         return '(_ map {})'.format(str(z3.get_map_func(expr)).lower())
@@ -121,7 +123,7 @@ def serialize_encoding(encoding, structs):
     # Const decls
     consts = z3utils.collect_consts(encoding)
     ordered = sorted(consts, key=z3utils.by_complexity)
-    const_decls = [_smt_const_decl(c) for c in ordered]
+    const_decls = [smt_const_decl(c) for c in ordered]
 
     # Generate sort-based decls based on the sorts for which we have constants
     sort_decls = []
@@ -136,8 +138,8 @@ def serialize_encoding(encoding, structs):
                 sort_decls.append(sort)
             fun_refs += struct.heap_fns()
 
-    main_decls = ([_smt_sort_decl(s) for s in sort_decls]
-                  + [_smt_fun_decl(f) for f in fun_refs])
+    main_decls = ([smt_sort_decl(s) for s in sort_decls]
+                  + [smt_fun_decl(f) for f in fun_refs])
 
     # Full list of declarations
     decls = main_decls + const_decls

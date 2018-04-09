@@ -53,6 +53,16 @@ def X(sort, fld = None):
     suffix = fld if fld is not None else ''
     return sort.set_sort()['X' + suffix]
 
+def Xs(sort, structs):
+    yield X(sort)
+    flds = set()
+    for s in structs:
+        for f in s.fields:
+            if f not in flds:
+                flds.add(f)
+                yield X(sort, f)
+
+
 def r(sort, k):
     """Return the k-th reachability predicate symbol.
 
@@ -60,6 +70,9 @@ def r(sort, k):
     'BoolRef'
     """
     return z3.Function('r{}'.format(k), sort.ref, sort.ref, z3.BoolSort())
+
+def rs(sort, n):
+    return (r(sort, k) for k in range(1, n+1))
 
 def is_bounded_heap_interpretation(n, sort, structs):
     """Delta_SL^N: Define SL* heap interpretations of size at most N
@@ -393,6 +406,9 @@ class FPVector:
     def __getitem__(self, key):
         return self.fp_dict[key]
 
+    def get_all(self):
+        return list(self.fp_dict.values())
+
     def fps_for_struct(self, struct, negate_result = False):
         for fld, fp in sorted(self.fp_dict.items(),
                               key = operator.itemgetter(0)):
@@ -676,10 +692,9 @@ def data_preds_hold(n, struct, z, preds):
 
 SplitEnc = collections.namedtuple('SplitEnc', 'A B')
 
-def struct_encoding(n, y, struct, preds, root, *stops):
+def struct_encoding(n, y, struct, z, preds, root, *stops):
     assert isinstance(preds, DataPreds)
     assert isinstance(y, FPVector)
-    z = struct.fp_sort['z'] # TODO: Ensure z is fresh!
     cs_a = [is_struct_footprint(n, struct, z, y),
             is_acyclic(n, struct, root, z),
             data_preds_hold(n, struct, z, preds),
@@ -692,13 +707,28 @@ def struct_encoding(n, y, struct, preds, root, *stops):
     B = c.from_list(cs_a).to_conjunction('Footprint encoding of list({}, {}) of size {}'.format(root, stops, n, preds))
     return SplitEnc(A, B)
 
-def bounded_encoding(n, y, structs, struct, preds, root, *stops):
+def bounded_encoding(n, y, structs, struct, z, preds, root, *stops):
     "Top-level encoding of a formula that is a single predicate call."
     assert struct in structs
     sort = struct.sort
-    A, B = struct_encoding(n, y, struct, preds, root, *stops)
+    A, B = struct_encoding(n, y, struct, z, preds, root, *stops)
     return c.And(
         is_bounded_heap_interpretation(n, sort, structs),
         A,
         B
     )
+
+def z3_input(n, y, structs, struct, preds, root, *stops):
+    z = struct.fp_sort['z'] # TODO: Ensure z is fresh!
+    cs = bounded_encoding(n, y, structs, struct, z, preds, root, *stops)
+    consts = ([root]
+              + list(stops)
+              + [struct.null for struct in structs]
+              + [z]
+              + y.get_all()
+              + list(xs(struct.sort, n))
+              + list(Xs(struct.sort, structs)))
+    funs = itertools.chain(*(s.heap_fns() for s in structs),
+                           rs(struct.sort, n))
+    decls = c.SmtDecls(consts, funs)
+    return c.Z3Input(cs, decls)

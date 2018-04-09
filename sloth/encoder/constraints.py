@@ -1,10 +1,11 @@
+import itertools
 import operator
 import textwrap
 
 import z3
 
 from .. import serialization
-from ..backend import symbols
+from ..backend import symbols, generic
 from ..utils import utils
 
 class ConstraintList:
@@ -181,7 +182,46 @@ class Iff(BinOp):
     op = operator.eq
 
 
+class SmtDecls:
+    def __init__(self, consts = [], funs = [], sorts = []):
+        self.consts = [self._to_ref(c) for c in consts]
+        self.funs = list(funs)
+        self.sorts = list(sorts)
+
+    def _to_ref(self, c):
+        if isinstance(c, z3.ExprRef):
+            return c
+        else:
+            assert isinstance(c, generic.Set), \
+                "Can't convert {} of type {} to z3 expression reference".format(c, type(c).__name__)
+            return c.ref
+
+    def to_smt2_string(self):
+        sorts = map(serialization.smt_sort_decl, self.sorts)
+        # TODO: Convert FPs to refs
+        consts = map(serialization.smt_const_decl, self.consts)
+        funs = map(serialization.smt_fun_decl, self.funs)
+        all_decls = itertools.chain(sorts, consts, funs)
+        return '\n'.join(all_decls)
+
 class Z3Input:
     def __init__(self, constraint, decls = None):
         self.constraint = constraint
         self.decls = decls
+
+    def to_smt2_string(self, check_sat = True, get_model = True):
+        cmds = ''
+        if check_sat:
+            cmds += '\n(check-sat)'
+        if check_sat:
+            cmds += '\n(get-model)'
+
+        return '{}\n(assert\n{}\n){}\n'.format(
+            self.decls.to_smt2_string(),
+            textwrap.indent(to_commented_z3_string(self.constraint), '  '),
+            cmds
+        )
+
+    def to_file(self, filename):
+        with open(filename, 'w') as f:
+            f.write(self.to_smt2_string())
