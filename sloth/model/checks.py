@@ -10,6 +10,7 @@
 
 from .. import z3api
 from ..encoder import topdown
+from ..utils import utils
 from . import model
 from .graph import Graph, canonicalize
 

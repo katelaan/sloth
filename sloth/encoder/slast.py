@@ -135,17 +135,14 @@ class PredCall(SlAst):
 
     """
 
-    #fp_letter = "C"
-
     def __init__(self, struct, fld, pred, root, *stop_nodes):
         super().__init__()
         # Both None => Core, spatial predicate call
-        # Both != None => Data predicate call
-        assert((fld is None) or isinstance(fld, str))
-        #assert((pred is None) or isinstance(pred, DataAtom))
-        if fld is not None:
-            assert(pred is not None)
-        assert(isinstance(root, ExprRef))
+        assert (fld is None) or isinstance(fld, str)
+        assert (fld is None) or (pred is not None), \
+                'Data predicate field is set, but not the predicate itself'
+        assert isinstance(root, ExprRef), \
+            'Cannot use {} of type {} as data structure root'.format(root, type(root).__name__)
         self.struct = struct
         self.fld = fld
         self.pred = pred
