@@ -9,7 +9,7 @@
 
 from ..backend import struct as struct_mod
 from .utils import EncoderState
-from .astutils import occurring_structs
+from .astutils import structs_in_ast
 
 class FootprintManager:
     """Adapter for the dict of footprint names currently in scope.
@@ -70,7 +70,7 @@ def make_fp(struct, fld, root):
     return struct.fp_sort[FootprintManager.fp_id(struct, fld, str(root))]
 
 def make_global_fps(obj, *child_encs):
-    global_dict = FootprintManager(occurring_structs(obj), obj.fp_letter + str(obj.id_) + "__").typed_fp_dict()
+    global_dict = FootprintManager(structs_in_ast(obj), obj.fp_letter + str(obj.id_) + "__").typed_fp_dict()
     local_dicts = [child.fps for child in obj]
     for l in local_dicts:
         # Make sure we're not passing FootprintManagers around

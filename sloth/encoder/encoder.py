@@ -288,7 +288,7 @@ def _leaf_constants(obj, fps):
 
 
 def _inner_constants(obj, fps, *child_encs):
-    structs = astutils.occurring_structs(obj)
+    structs = astutils.structs_in_ast(obj)
     cs = ConstantSet(structs)
     for (struct,_), fp in fps.items():
         assert(struct in structs)

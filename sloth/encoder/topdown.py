@@ -11,7 +11,7 @@
 We test the encoder for formulas that do not contain calls. Formulas
 with calls are tested separately for each call encoding.
 
->>> sts = [sl.list.struct, sl.tree.struct]; eval_ = functools.partial(evaluate_to_graph, sts)
+>>> eval_ = functools.partial(evaluate_to_graph, sl)
 >>> x, y, z = sl.list.locs('x y z'); t, u, v, w = sl.tree.locs('t u v w'); d, e, f = z3.Ints('d e f')
 >>> eval_(sl.list.pointsto(x, y))
 Graph({0, 1}, {(0, 'next'): 1}, {'x': 0, 'y': 1})
@@ -24,26 +24,51 @@ Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 0}, {'sl.list.
 
 """
 
-import functools
+import functools, itertools
 
 from z3 import And, Not, Or
 
 from ..utils import utils
+from ..z3api import z3utils
 from . import constraints as c
 from . import slast
 from . import astbuilder
 from .shared import *
 
-def model_of_sl_expr(structs, sl_expr):
+def structs_in_expr(sl, sl_expr):
+    """
+    >>> structs_in_expr(sl, sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null)))
+    [Struct(sl.list)]
+    >>> structs_in_expr(sl, z3.And(sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null)), z3.Not(sl.sepcon(sl.tree.left(t,u),sl.tree.right(t,v)))))
+    [Struct(sl.list), Struct(sl.tree)]
+
+    """
+
+    d = { tuple(s.parsable_decls()) : s for s in sl.structs}
+
+    def local_structs(sl_expr):
+        return { s for fns, s in d.items() if sl_expr.decl() in fns }
+
+    def leaf(sl_expr):
+        return local_structs(sl_expr)
+
+    def inner(sl_expr, folding):
+        return set(itertools.chain(local_structs(sl_expr), *folding))
+
+    return list(sorted(z3utils.expr_fold(sl_expr, leaf, inner), key=str))
+
+
+def model_of_sl_expr(sl, sl_expr):
     # TODO: Getting a model should be in a different module
     from .. import z3api
-    e = encode_sl_expr(structs, sl_expr)
+    e = encode_sl_expr(sl, sl_expr)
     if z3api.is_sat(e.to_z3_expr()):
         return e.label_model(z3api.model())
     else:
         return None
 
-def encode_sl_expr(structs, sl_expr):
+def encode_sl_expr(sl, sl_expr):
+    structs = structs_in_expr(sl, sl_expr)
     config = EncoderConfig(structs)
     return encode_ast(config, astbuilder.ast(structs, sl_expr))
 

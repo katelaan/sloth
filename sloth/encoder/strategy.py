@@ -377,7 +377,7 @@ def model_if_sat(ast, encoding):
         if strategy_debug_enabled():
             logger.debug(consts)
             logger.debug(z3api.model())
-        return model.SmtModel(z3api.model(), consts, astutils.occurring_structs(ast))
+        return model.SmtModel(z3api.model(), consts, astutils.structs_in_ast(ast))
     else:
         timing.log(timing.EventType.EndSmt)
         if INFO_PRINT:

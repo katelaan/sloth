@@ -238,7 +238,7 @@ class Z3Input:
         if self.encoded_ast is None:
             raise utils.SlothException("No SL AST defined => Can't compute constants")
         else:
-            structs = astutils.occurring_structs(self.encoded_ast)
+            structs = astutils.structs_in_ast(self.encoded_ast)
             consts = cs.ConstantSet(structs)
             consts_by_struct = astutils.consts_by_struct(self.encoded_ast, structs)
             for struct, locs in consts_by_struct.items():

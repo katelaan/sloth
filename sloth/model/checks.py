@@ -8,10 +8,30 @@
 
 """
 
+from .. import z3api
 from ..encoder import topdown
 from . import model
 from .graph import Graph, canonicalize
 
+
+def show_evaluation_steps(sl, sl_expr):
+    e = topdown.encode_sl_expr(sl, sl_expr)
+    print('Constraint:\n-----------')
+    print(e.constraint)
+    z3e = e.to_z3_expr()
+    print('\n\nAs Z3 expression:\n-----------------')
+    print(z3e)
+    sat = z3api.is_sat(z3e)
+    print('\n\nIs SAT: {}'.format(sat))
+    if sat:
+        print('\n\nZ3 model:\n---------')
+        m = z3api.model()
+        print(m)
+        print('\n\nAdapted model:\n--------------')
+        a = e.label_model(m)
+        print(a)
+        print('\n\nAs graph:\n---------')
+        print(canonical_graph(a))
 
 def _as_graph(m):
     if isinstance(m, Graph):
@@ -25,7 +45,7 @@ def _as_graph(m):
 def isomorphic(m1, m2):
     """
     >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
-    >>> m = topdown.model_of_sl_expr([sl.list.struct,sl.tree.struct], sl_expr)
+    >>> m = topdown.model_of_sl_expr(sl, sl_expr)
     >>> isomorphic(m, Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3}))
     True
     >>> isomorphic(m, Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 1}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3}))
@@ -36,14 +56,14 @@ def isomorphic(m1, m2):
     g2 = _as_graph(m2)
     return canonicalize(g1) == canonicalize(g2)
 
-def evaluate_to_graph(structs, sl_expr):
+def evaluate_to_graph(sl, sl_expr):
     """
     >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
-    >>> evaluate_to_graph([sl.list.struct, sl.tree.struct], sl_expr)
+    >>> evaluate_to_graph(sl, sl_expr)
     Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3})
 
     """
-    m = topdown.model_of_sl_expr(structs, sl_expr)
+    m = topdown.model_of_sl_expr(sl, sl_expr)
     return canonical_graph(m)
 
 def canonical_graph(m):
@@ -53,7 +73,7 @@ def graph_from_smt_model(m):
     """Construct a graph model from an SMT model.
 
     >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
-    >>> m = topdown.model_of_sl_expr([sl.list.struct,sl.tree.struct], sl_expr)
+    >>> m = topdown.model_of_sl_expr(sl, sl_expr)
     >>> print(graph_from_smt_model(m))
     Graph[
       0: [x] -[next]> 1

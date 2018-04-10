@@ -74,10 +74,10 @@ def pred_calls(ast):
         return utils.merge_sets(*child_results)
     return fold(f_inner, f_leaf, ast)
 
-def occurring_structs(ast):
+def structs_in_ast(ast):
     """Returns the set of all structures that occur in this AST.
 
-    >>> get_structs = lambda expr : sorted(map(str,list(occurring_structs(ast(sl.structs, expr)))))
+    >>> get_structs = lambda expr : sorted(map(str,list(structs_in_ast(ast(sl.structs, expr)))))
     >>> a = Int("a")
     >>> get_structs(a < 23)
     []
