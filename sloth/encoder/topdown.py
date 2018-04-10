@@ -23,6 +23,10 @@ True
 Graph({0, 1}, {(0, 'next'): 1}, {'x': 0, 'y': 1})
 >>> eval_(sl.tree.pointsto(t, u, v))
 Graph({0, 1, 2}, {(0, 'left'): 1, (0, 'right'): 2}, {'t': 0, 'u': 1, 'v': 2})
+>>> eval_(sl.tree.left(t,u))
+Graph({0, 1}, {(0, 'left'): 1}, {'t': 0, 'u': 1})
+>>> eval_(sl.sepcon(sl.tree.left(t,u), sl.tree.right(t,v)))
+Graph({0, 1, 2}, {(0, 'left'): 1, (0, 'right'): 2}, {'t': 0, 'u': 1, 'v': 2})
 >>> eval_(sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z)))
 Graph({0, 1, 2}, {(0, 'next'): 1, (1, 'next'): 2}, {'x': 0, 'y': 1, 'z': 2})
 >>> eval_(sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null)))
@@ -62,6 +66,25 @@ False
 False
 >>> is_sat(z3.And(sl.sepcon(sl.list.pointsto(x, y), sl.list.eq(x, z)), z3.Not(sl.list.pointsto(z, y))))
 False
+
+Benchmarks with data constraints
+--------------------------------
+
+In the following test cases, there is sometimes more than one choice
+for satisfying the data constraints. The current version of z3 gives a
+deterministic output for these, so checking for graph isomorphism is
+still fine. But with other versions of z3, some test cases might
+actually break even though the code is correct. (Larger values than 43
+and 9000 for the third and fourth benchmark below.)
+
+>>> eval_(sl.sepcon(sl.list.data(x,d), d == 42))
+Graph({0}, {(0, 'data'): 42}, {'x': 0}, {'d': 42})
+>>> eval_(sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d == 42))
+Graph({0, 1}, {(0, 'data'): 42, (0, 'next'): 1}, {'x': 0, 'y': 1}, {'d': 42})
+>>> eval_(z3.And(sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d > 42), sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d < 9000)))
+Graph({0, 1}, {(0, 'data'): 43, (0, 'next'): 1}, {'x': 0, 'y': 1}, {'d': 43})
+>>> eval_(z3.And(sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d > 42), z3.Not(sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d < 9000))))
+Graph({0, 1}, {(0, 'data'): 9000, (0, 'next'): 1}, {'x': 0, 'y': 1}, {'d': 9000})
 
 """
 
@@ -214,11 +237,9 @@ def encode_data_atom(da, Y):
 def encode_pto_fld(pto, Y):
     alloced, empty = Y.group_by_flds([pto.fld])
     assert len(alloced) == 1
-    struct, src, fld, trg = ptro.struct, pto.src, pto.fld, pto.trg
+    struct, src, fld, trg = pto.struct, pto.src, pto.fld, pto.trg
     A = c.And(Not(src == struct.null),
-              trg == struct.heap_fn(fld)(src),
-              ast = pto,
-              a_or_b = _A)
+              trg == struct.heap_fn(fld)(src))
     B = c.And(alloced[0].is_singleton(src),
               *(fp.is_empty() for fp in empty))
     return as_split_constraints(A, B, pto)

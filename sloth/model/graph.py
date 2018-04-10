@@ -10,6 +10,8 @@ import functools, itertools
 
 from ..utils import utils
 
+DATA_FLD = 'data'
+
 @functools.total_ordering
 class Graph:
     """Represents a model from our model algebra.
@@ -47,25 +49,30 @@ class Graph:
 
     """
 
-    def __init__(self, val, ptr, s):
+    def __init__(self, val, ptr, s, data = {}):
         self.val = set(val)
         # TODO: It's worth thinking about a smarter ptr representation, because finding all pointers originating in v is in Theta(len(ptr)) in the current implementation
         self.ptr = dict(ptr)
         self.s = dict(s)
-        assert(self.val.issuperset(k[0] for k in self.ptr))
-        assert(self.val.issuperset(self.ptr.values()))
-        assert(self.val.issuperset(self.s.values()))
+        self.data = dict(data)
+        assert self.val.issuperset(k[0] for k in self.ptr), \
+            'There is a pointer among {} whose source is not in {}.'.foramt(self.ptr, self.val)
+        # TODO: Do we want any special treatment of data pointers? If so, we could reactivate the following assertions.
+        #assert self.val.issuperset(self.ptr.values())
+        #assert self.val.issuperset(self.s.values())
 
     def __hash__(self):
         return hash((tuple(sorted(self.val)),
                      tuple(sorted(self.ptr.items())),
-                     tuple(sorted(self.s.items()))))
+                     tuple(sorted(self.s.items())),
+                     tuple(sorted(self.data.items()))))
 
     def __eq__(self, other):
         return all([isinstance(other, Graph),
                     self.val == other.val,
                     self.ptr == other.ptr,
-                    self.s == other.s])
+                    self.s == other.s,
+                    self.data == other.data])
 
     def __len__(self):
         return len(self.ptr)
@@ -78,14 +85,11 @@ class Graph:
         # sense. I defined it like this because that's currently
         # sufficient to guarantee a stable ordering of the output of
         # the test cases, see e.g. print_joined
-        if len(self.ptr) < len(other.ptr):
-            return True
-        elif len(self.val) < len(other.val):
-            return True
-        elif len(self.s) < len(other.s):
-            return True
-        else:
-            return False
+        return any(
+            len(self.ptr) < len(other.ptr),
+            len(self.val) < len(other.val),
+            len(self.s) < len(other.s),
+            len(self.data) < len(other.data))
 
     def __mul__(self, other):
         """Separating conjunction.
@@ -129,7 +133,8 @@ class Graph:
         new_ptr = {(renamed(src),lbl) : renamed(trg)
                    for (src,lbl),trg in self.ptr.items()}
         new_s = {k : renamed(v) for k,v, in self.s.items()}
-        return Graph(new_val, new_ptr, new_s)
+        new_d = dict(self.data)
+        return Graph(new_val, new_ptr, new_s, new_d)
 
     def merge(self, other):
         merged_val = self.val.union(other.val)
@@ -137,7 +142,9 @@ class Graph:
         merged_ptr.update(other.ptr)
         merged_s = dict(self.s)
         merged_s.update(other.s)
-        return Graph(merged_val, merged_ptr, merged_s)
+        merged_data = dict(self.data)
+        merged_data.update(other.data)
+        return Graph(merged_val, merged_ptr, merged_s, merged_data)
 
     def ptr_flds(self):
         """
@@ -193,9 +200,10 @@ variable.
         while cache:
             curr = cache.pop()
             visited.add(curr)
-            children = (trg for (src,_),trg in self.ptr.items() if src == curr)
+            # Only follow non-data pointers
+            children = (trg for (src,lbl),trg in self.ptr.items() if src == curr and lbl != DATA_FLD)
             for c in children:
-                if c not in visited:
+                if c not in visited and c in self.val:
                     cache.add(c)
         return visited == self.val
 
@@ -212,13 +220,23 @@ variable.
                 trgs = '->'
             return '  {}: {}{}'.format(v, xs, trgs)
         ss = (summary(v) for v in sorted(self.val))
-        return 'Graph[\n{}\n]'.format('\n'.join(ss))
+        if self.data:
+            pairs = ['{} = {}'.format(x,v) for x,v in self.data.items()]
+            data = '\n  data: ' + ', '.join(pairs)
+        else:
+            data = ''
+
+        return 'Graph[\n{}{}\n]'.format('\n'.join(ss), data)
 
     def __repr__(self):
-        fmt = 'Graph({!r}, {}, {})'
+        fmt = 'Graph({!r}, {}, {}{})'
         ptr_str = utils.unique_repr(self.ptr)
         stack_str = utils.unique_repr(self.s)
-        return fmt.format(self.val, ptr_str, stack_str)
+        if self.data:
+            data_str = ', ' + utils.unique_repr(self.data)
+        else:
+            data_str = ''
+        return fmt.format(self.val, ptr_str, stack_str, data_str)
 
 def empty_graph(*vs):
     """Return a model without any pointers and with one location per var in `vs`.
@@ -263,7 +281,7 @@ def canonicalize(m):
     Graph({0, 1, 2, 3, 4, 5, 6}, {(0, 'l'): 1, (0, 'r'): 2, (3, 'm'): 4, (3, 's'): 6, (4, 'm'): 5}, {'x1': 0, 'x2': 2, 'x3': 3})
 
     """
-    assert m.is_garbagefree()
+    assert m.is_garbagefree(), 'The graph {!r} is not garbage free'.format(m)
 
     renaming = {}
     i = 0
@@ -276,7 +294,8 @@ def canonicalize(m):
             renaming[v] = i
             i += 1
             visited.add(v)
-            children = ((lbl,trg) for (src,lbl),trg in m.ptr.items() if src == v)
+            # Add all non-data children to the cache
+            children = ((lbl,trg) for (src,lbl),trg in m.ptr.items() if src == v and lbl != DATA_FLD)
             sorted_cs = [trg for (_,trg) in sorted(children)]
             cache = sorted_cs + cache
     return m.rename_vals(renaming)

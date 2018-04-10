@@ -93,6 +93,7 @@ def graph_from_smt_model(m):
             v = m.val_of(c).as_long()
             #print('{} : {}'.format(c, v))
             stack[str(c)] = v
+            # Add all pointers for all fields of the structure
             for fld in s.fields:
                 fn = sm.heap_fn(fld)
                 if fn.is_defined():
@@ -103,4 +104,8 @@ def graph_from_smt_model(m):
                         else:
                             #print('{}: {} not alloced'.format(loc, fld))
                             pass
-    return Graph(vals, ptrs, stack)
+    # Add data evaluation to the stack
+    data = {}
+    for c, v_ref in m.data.items():
+        data[str(c)] = v_ref.as_long()
+    return Graph(vals, ptrs, stack, data)
