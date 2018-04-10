@@ -159,7 +159,7 @@ class Not(SmtConstraint):
         yield self.constraint
 
     def to_z3_expr(self):
-        return z3.Not(self.constraint)
+        return z3.Not(self.constraint.to_z3_expr())
 
 class BinOp(SmtConstraint):
 
@@ -176,7 +176,7 @@ class BinOp(SmtConstraint):
         yield self.right
 
     def to_z3_expr(self):
-        return self.op(self.constraint)
+        return self.op(self.left.to_z3_expr(), self.right.to_z3_expr())
 
 class Implies(BinOp):
     op = z3.Implies
@@ -250,11 +250,14 @@ class Z3Input:
                 # FIXME: Non-FP consts introduced by the encoding are not added at all. Is that what we want. (it might actually be, because we don't really care about the auxiliary variables from the unfolding)
                 if isinstance(decl, generic.Set):
                     sdecl = str(decl)
+                    #print('Processing FP var {}'.format(sdecl))
                     for s in structs:
-                        for f in struct.fields:
+                        for f in s.fields:
                             if sdecl.find(f) != -1:
                                 # Note that this way we add data fp vars to all structs
+                                #print('Adding {} to the struct model for {} because of match for field {}'.format(sdecl, s, f))
                                 consts.add_fp_consts(s, decl)
+                                break
 
             return consts
 

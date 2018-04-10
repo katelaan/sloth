@@ -199,7 +199,7 @@ class SpatialEq(SlAst):
         self.right = right
 
     def to_sl_expr(self):
-        if self.negated :
+        if self.negated:
             return self.struct.disequality_predicate()(self.left, self.right)
         else:
             return self.struct.equality_predicate()(self.left, self.right)

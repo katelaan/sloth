@@ -108,7 +108,8 @@ class StructModel:
             if str(fp) == 'X' + fld:
                 match = fp
                 break
-        assert match is not None
+        assert match is not None, \
+            "Couldn't check whether {} is allocated for {} in {}".format(loc, fld, self)
         return loc in self.footprint(match)
 
     def _init_func_wrappers(self):

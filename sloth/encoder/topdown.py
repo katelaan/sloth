@@ -11,8 +11,14 @@
 We test the encoder for formulas that do not contain calls. Formulas
 with calls are tested separately for each call encoding.
 
+Single pointers and small separating conjunctions of pointers / equalities
+--------------------------------------------------------------------------
+
+>>> is_sat = functools.partial(sl_expr_is_sat, sl)
 >>> eval_ = functools.partial(evaluate_to_graph, sl)
 >>> x, y, z = sl.list.locs('x y z'); t, u, v, w = sl.tree.locs('t u v w'); d, e, f = z3.Ints('d e f')
+>>> is_sat(sl.list.pointsto(x, y))
+True
 >>> eval_(sl.list.pointsto(x, y))
 Graph({0, 1}, {(0, 'next'): 1}, {'x': 0, 'y': 1})
 >>> eval_(sl.tree.pointsto(t, u, v))
@@ -21,6 +27,41 @@ Graph({0, 1, 2}, {(0, 'left'): 1, (0, 'right'): 2}, {'t': 0, 'u': 1, 'v': 2})
 Graph({0, 1, 2}, {(0, 'next'): 1, (1, 'next'): 2}, {'x': 0, 'y': 1, 'z': 2})
 >>> eval_(sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null)))
 Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3})
+>>> eval_(sl.list.eq(x,y))
+Graph({0}, {}, {'x': 0, 'y': 0})
+>>> eval_(sl.sepcon(sl.list.pointsto(x, y), sl.list.eq(x, y)))
+Graph({0}, {(0, 'next'): 0}, {'x': 0, 'y': 0})
+
+Mixing data structures in one expression:
+
+>>> eval_(sl.sepcon(sl.list.pointsto(x,y), sl.tree.pointsto(t,u,v)))
+Graph({0, 1, 2, 3, 4}, {(0, 'left'): 1, (0, 'right'): 2, (3, 'next'): 4}, {'t': 0, 'u': 1, 'v': 2, 'x': 3, 'y': 4})
+
+Input with Boolean structure
+----------------------------
+
+>>> eval_(z3.And(sl.list.pointsto(x,y), sl.list.pointsto(z, y)))
+Graph({0, 1}, {(0, 'next'): 1}, {'x': 0, 'y': 1, 'z': 0})
+>>> eval_(z3.Or(sl.list.pointsto(x,y), sl.tree.pointsto(t, u, v)))
+Graph({0, 1, 2, 3}, {(0, 'left'): 1, (0, 'right'): 2}, {'t': 0, 'u': 1, 'v': 2, 'x': 3})
+>>> eval_(z3.Not(sl.list.pointsto(x,y)))
+Graph({0}, {}, {'x': 0})
+>>> eval_(z3.And(sl.list.pointsto(y,x), z3.Not(sl.list.pointsto(x,y))))
+Graph({0, 1}, {(1, 'next'): 0}, {'x': 0, 'y': 1})
+>>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(y, z)), sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(y, x))))
+Graph({0, 1}, {(0, 'next'): 1, (1, 'next'): 0}, {'x': 0, 'y': 1, 'z': 0})
+>>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(y, z)), z3.Not(sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(y, x)))))
+Graph({0, 1, 2}, {(0, 'next'): 1, (1, 'next'): 2}, {'x': 0, 'y': 1, 'z': 2})
+
+Simple unsatisfiable benchmarks
+-------------------------------
+
+>>> is_sat(sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(x,y)))
+False
+>>> is_sat(z3.And(sl.list.pointsto(x, y), z3.Not(sl.list.pointsto(x,y))))
+False
+>>> is_sat(z3.And(sl.sepcon(sl.list.pointsto(x, y), sl.list.eq(x, z)), z3.Not(sl.list.pointsto(z, y))))
+False
 
 """
 
@@ -58,14 +99,20 @@ def structs_in_expr(sl, sl_expr):
     return list(sorted(z3utils.expr_fold(sl_expr, leaf, inner), key=str))
 
 
+# TODO: Have a separate API module for the encoder package
+
 def model_of_sl_expr(sl, sl_expr):
-    # TODO: Getting a model should be in a different module
     from .. import z3api
     e = encode_sl_expr(sl, sl_expr)
     if z3api.is_sat(e.to_z3_expr()):
         return e.label_model(z3api.model())
     else:
         return None
+
+def sl_expr_is_sat(sl, sl_expr):
+    from .. import z3api
+    e = encode_sl_expr(sl, sl_expr)
+    return z3api.is_sat(e.to_z3_expr())
 
 def encode_sl_expr(sl, sl_expr):
     structs = structs_in_expr(sl, sl_expr)
@@ -97,6 +144,8 @@ class EncoderConfig:
 
 
 def as_split_constraints(A, B, ast, fresh = None):
+    assert isinstance(A, c.SmtConstraint)
+    assert isinstance(B, c.SmtConstraint)
     expr = ast.to_sl_expr()
     A.sl_expr = expr
     A.description = 'Structural part (A)'
@@ -153,13 +202,13 @@ def encode_spatial(config, ast, Y):
         raise utils.SlothException(msg.format(type_))
 
 def encode_eq(eq, Y):
-    A = eq.left == eq.right
-    B = And(*(fp.is_empty() for fp in Y.all_fps()))
+    A = c.as_constraint(eq.left == eq.right)
+    B = c.And(*(fp.is_empty() for fp in Y.all_fps()))
     return as_split_constraints(A, B, eq)
 
 def encode_data_atom(da, Y):
-    A = da.atom
-    B = And(*(fp.is_empty() for fp in Y.all_fps()))
+    A = c.as_constraint(da.atom)
+    B = c.And(*(fp.is_empty() for fp in Y.all_fps()))
     return as_split_constraints(A, B, da)
 
 def encode_pto_fld(pto, Y):
