@@ -149,15 +149,15 @@ def encode_sl_expr(sl, sl_expr):
     if n > 0:
         print('Computed bounds: {}'.format(bounds))
         # TODO: Get rid of the explicit sort in the direct encoder API
-        global_encoder_fn = functools.partial(direct.is_bounded_heap_interpretation, n, structs[0].sort, structs)
+        global_encoder_fn = functools.partial(direct.is_bounded_heap_interpretation, n, structs)
         # TODO: Ensure we pass in the right parameters. Possibly change the API somehwat.
-        call_encoder_fn = functools.partial(direct.struct_encoding)
+        encode_call_fn = direct.call_encoding
     else:
         global_encoder_fn = None
-        call_encoder_fn = None
+        encode_call_fn = None
     config = EncoderConfig(
         structs,
-        call_encoder_fn,
+        encode_call_fn,
         global_encoder_fn,
         bounds_by_struct = bounds)
     return encode_ast(config, ast)
@@ -205,7 +205,7 @@ def _process_struct_consts(struct, consts):
     return var_count
 
 class EncoderConfig:
-    def __init__(self, structs, call_encoder_fn = None, global_encoder_fn = None, bounds_by_struct = None):
+    def __init__(self, structs, encode_call_fn = None, global_encoder_fn = None, bounds_by_struct = None):
         self.structs = structs
         # From set to avoid duplicate fields (data occurs in every struct!)
         self.flds = list(sorted({f for s in structs for f in s.fields}))
@@ -213,19 +213,25 @@ class EncoderConfig:
             # To ensure this crashes early with the quantified backend
             raise utils.SlothException("Can't use encoder config with quantified backend.")
         self.fp_sort = structs[0].fp_sort
-        self.call_encoder_fn = call_encoder_fn
+        self.encode_call_fn = encode_call_fn
         self.global_encoder_fn = global_encoder_fn
         self.bounds_by_struct = bounds_by_struct
+        self.next_fp_vec_ix = 0
         self.next_fp_ix = 0
 
-    prefix = 'Y'
+    fp_vec_prefix = 'Y'
+    fresh_fp_prefix = 'Z'
 
-    def _fp_name(self, i, fld):
-        return EncoderConfig.prefix + str(self.next_fp_ix) + fld
+    def _fp_vec_name(self, i, fld):
+        return EncoderConfig.fp_vec_prefix + str(self.next_fp_vec_ix) + fld
 
     def get_fresh_fpvector(self):
+        self.next_fp_vec_ix += 1
+        return FPVector(self.fp_sort, self._fp_vec_name(self.next_fp_vec_ix, ''), self.flds)
+
+    def get_fresh_fp(self):
         self.next_fp_ix += 1
-        return FPVector(self.fp_sort, self._fp_name(self.next_fp_ix, ''), self.flds)
+        return self.fp_sort[self.fresh_fp_prefix + str(self.next_fp_ix)]
 
 
 def as_split_constraints(A, B, ast, fresh = None):
@@ -273,10 +279,10 @@ def encode_spatial(config, ast, Y):
     if type_ == slast.SepCon:
         return encode_sepcon(config, ast, Y)
     elif type_ == slast.PredCall:
-        if config.call_encoder_fn is None:
+        if config.encode_call_fn is None:
             raise utils.SlothException("No call encoder specified")
         else:
-            return config.call_encoder_fn(config, ast, Y)
+            return config.encode_call_fn(config, ast, Y)
     elif type_ == slast.DataAtom:
         return encode_data_atom(ast, Y)
     elif type_ == slast.PointsTo:

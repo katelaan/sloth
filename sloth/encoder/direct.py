@@ -18,6 +18,7 @@ from ..backend import LambdaBackend, generic, lambdas, symbols
 from ..utils import utils
 from ..z3api import rewriter
 from . import constraints as c
+from . import slast
 from .shared import *
 
 def non_identical(x_i, x_j):
@@ -73,10 +74,10 @@ def r(sort, k):
 def rs(sort, n):
     return (r(sort, k) for k in range(1, n+1))
 
-def is_bounded_heap_interpretation(n, sort, structs):
+def is_bounded_heap_interpretation(n, structs):
     """Delta_SL^N: Define SL* heap interpretations of size at most N
 
-    >>> delta = is_bounded_heap_interpretation(3, LambdaBackend.make_loc_sort(None), [sl.list.struct, sl.tree.struct])
+    >>> delta = is_bounded_heap_interpretation(3, [sl.list.struct, sl.tree.struct])
     >>> print(delta)
     ;; Delta_SL(3)
     (And
@@ -102,6 +103,11 @@ def is_bounded_heap_interpretation(n, sort, structs):
     )
 
     """
+    sort = {struct.sort for struct in structs}
+    assert len(sort) == 1, \
+        "Got sorts {}, but currently no direct encoding for multi-sort backends".format(sort)
+    sort = sort.pop()
+
     cs = c.ConstraintList()
     flds = utils.flatten(s.structural_fields for s in structs)
 
@@ -169,18 +175,18 @@ def S(struct, x, y):
     desc = '{} is a {}-successor of {}'.format(y, flds, x)
     return cs.to_disjunction(description = desc)
 
-def R(n, k, struct, z):
+def R(n, k, struct, Z):
     """Define r_k as the k-step reachability relation within the footprint z.
 
-    >>> z = sl.tree.struct.fp_sort['z']
-    >>> print(R(3, 1, sl.tree.struct, z)) # doctest: +ELLIPSIS
+    >>> Z = sl.tree.struct.fp_sort['Z']
+    >>> print(R(3, 1, sl.tree.struct, Z)) # doctest: +ELLIPSIS
     ;; Interpret r1 as 1-step reachability
     (And
       ;; 1-step reachability from x0 to x1
       (Iff
         (r1(x0, x1))
         (And
-          (z[x0])
+          (Z[x0])
           (Not
             ;; x1 is a stop node
             (Or
@@ -201,7 +207,7 @@ def R(n, k, struct, z):
         (...)
       )
     )
-    >>> print(R(3, 3, sl.tree.struct, z)) # doctest: +ELLIPSIS
+    >>> print(R(3, 3, sl.tree.struct, Z)) # doctest: +ELLIPSIS
     ;; Interpret r3 as 3-step reachability
     (And
       ;; 3-step reachability from x0 to x1
@@ -229,7 +235,7 @@ def R(n, k, struct, z):
     sort = struct.sort
     if k == 1:
         exprs = [c.Iff(r(sort, 1)(x_i,x_j),
-                       c.And(z.contains(x_i),
+                       c.And(Z.contains(x_i),
                              c.Not(is_stop_node(struct, x_j)),
                              S(struct, x_i, x_j)),
                        description = '1-step reachability from {} to {}'.format(x_i, x_j))
@@ -252,9 +258,9 @@ def R(n, k, struct, z):
     desc = 'Interpret {} as {}-step reachability'.format(r(sort, k), k)
     return cs.to_conjunction(description = desc)
 
-def reach(n, struct, z):
+def reach(n, struct, Z):
     """
-    >>> print(reach(3, sl.tree.struct, z))
+    >>> print(reach(3, sl.tree.struct, Z))
     ;; Define reachability predicates
     (And
       ;; Interpret r1 as 1-step reachability
@@ -266,21 +272,21 @@ def reach(n, struct, z):
     )
 
     """
-    exprs = [R(n, k+1, struct, z) for k in range(n)]
+    exprs = [R(n, k+1, struct, Z) for k in range(n)]
     cs = c.from_list(exprs)
     return cs.to_conjunction(description = 'Define reachability predicates')
 
-def defn(n, struct, z, root, *stops):
-    """Define the footprint set `z` w.r.t. root node `r`.
+def defn(n, struct, Z, root, *stops):
+    """Define the footprint set `Z` w.r.t. root node `r`.
 
-    >>> print(defn(3, sl.tree.struct, z, sort['r']))
-    ;; Define the footprint set z : SET(Int) for root r and nodes x0,...,x2
+    >>> print(defn(3, sl.tree.struct, Z, sort['r']))
+    ;; Define the footprint set Z : SET(Int) for root r and nodes x0,...,x2
     (And
-      ;; z : SET(Int) is a subset of {x0,...,x2}
+      ;; Z : SET(Int) is a subset of {x0,...,x2}
       ...
-      ;; If the root is a stop node, z : SET(Int) is empty
+      ;; If the root is a stop node, Z : SET(Int) is empty
       ...
-      ;; Everything in z : SET(Int) is reachable from the root r
+      ;; Everything in Z : SET(Int) is reachable from the root r
       ...
     )
 
@@ -288,42 +294,42 @@ def defn(n, struct, z, root, *stops):
     """
     sort = struct.sort
     cs = c.ConstraintList()
-    # Footprint z contains only the n allowed locations
-    cs.append_expr(z.subset_of(xs_set(sort, n)),
-                   description = '{} is a subset of {{{},...,{}}}'.format(z, x(sort,0), x(sort,n-1)))
-    # If the root is a stop node, z is empty
+    # Footprint Z contains only the n allowed locations
+    cs.append_expr(Z.subset_of(xs_set(sort, n)),
+                   description = '{} is a subset of {{{},...,{}}}'.format(Z, x(sort,0), x(sort,n-1)))
+    # If the root is a stop node, Z is empty
     cs.append_constraint(
-        c.Implies(is_stop_node(struct, root), z.is_empty(),
-                  description = 'If the root is a stop node, {} is empty'.format(z))
+        c.Implies(is_stop_node(struct, root), Z.is_empty(),
+                  description = 'If the root is a stop node, {} is empty'.format(Z))
     )
-    # If the root isn't a stop node, all nodes in z are reachable from the root
+    # If the root isn't a stop node, all nodes in Z are reachable from the root
     exprs = [
-        c.Implies(z.contains(x_i), z3.Or(x_i == root, r(sort, n)(root, x_i)))
+        c.Implies(Z.contains(x_i), z3.Or(x_i == root, r(sort, n)(root, x_i)))
         for x_i in xs(sort, n)
     ]
     reach_cs = c.from_list(exprs)
     cs.append_constraint(
-        reach_cs.to_conjunction(description = 'Everything in {} is reachable from the root {}'.format(z, root))
+        reach_cs.to_conjunction(description = 'Everything in {} is reachable from the root {}'.format(Z, root))
     )
 
-    return cs.to_conjunction(description = 'Define the footprint set {} for root {} and nodes {},...,{}'.format(z, root, x(sort, 0), x(sort, n-1)))
+    return cs.to_conjunction(description = 'Define the footprint set {} for root {} and nodes {},...,{}'.format(Z, root, x(sort, 0), x(sort, n-1)))
 
-def parents(n, struct, z):
+def parents(n, struct, Z):
     """parents_N: No two parents have the same child.
 
-    >>> print(parents(3, sl.tree.struct, z)) # doctest: +ELLIPSIS
+    >>> print(parents(3, sl.tree.struct, Z)) # doctest: +ELLIPSIS
     ;; parents_N: No two parents have the same child
     (And
       ;; If a node has two identical successors they are both null
       (And
-        (Implies(z[x0],
+        (Implies(Z[x0],
                 Implies(sl.tree.left(x0) == sl.tree.right(x0),
                         sl.tree.left(x0) == sl.tree.null)))
         ...
       )
       ;; If two nodes share a successor it's null
       (And
-        (Implies(And(z[x0], z[x1], Not(x0 == x1)),
+        (Implies(And(Z[x0], Z[x1], Not(x0 == x1)),
                 And(Implies(sl.tree.left(x0) == sl.tree.left(x1),
                             sl.tree.left(x0) == sl.tree.null),
                     Implies(sl.tree.left(x0) == sl.tree.right(x1),
@@ -339,7 +345,7 @@ def parents(n, struct, z):
     """
     flds = struct.structural_fields
     sort = struct.sort
-    exprs = [z3.Implies(z.contains(x_i),
+    exprs = [z3.Implies(Z.contains(x_i),
                         symbols.LAnd([
                             z3.Implies(struct.heap_fn(f)(x_i) == struct.heap_fn(g)(x_i),
                                        struct.heap_fn(f)(x_i) == struct.null)
@@ -356,7 +362,7 @@ def parents(n, struct, z):
         )
 
     exprs2 = [
-        z3.Implies(z3.And(z.contains(x_i), z.contains(x_j), z3.Not(x_i == x_j)),
+        z3.Implies(z3.And(Z.contains(x_i), Z.contains(x_j), z3.Not(x_i == x_j)),
                    all_succs_different(x_i, x_j))
         for x_i, x_j in itertools.combinations(xs(sort, n), 2)
     ]
@@ -369,11 +375,11 @@ def parents(n, struct, z):
     )
 
 
-def is_acyclic(n, struct, root, z):
-    """The structure rooted in `root` restricted to footprint `z` is acyclic.
+def is_acyclic(n, struct, root, Z):
+    """The structure rooted in `root` restricted to footprint `Z` is acyclic.
 
-    >>> print(is_acyclic(3, sl.tree.struct, sort['r'], z)) # doctest: +ELLIPSIS
-    ;; acyclic_N: No cycles in the structure induced by z : SET(Int)
+    >>> print(is_acyclic(3, sl.tree.struct, sort['r'], Z)) # doctest: +ELLIPSIS
+    ;; acyclic_N: No cycles in the structure induced by Z : SET(Int)
     (And
       ;; parents_N: No two parents have the same child
       ...
@@ -386,29 +392,29 @@ def is_acyclic(n, struct, root, z):
     """
     sort = struct.sort
     cs = c.from_list([
-        parents(n, struct, z),
+        parents(n, struct, Z),
         c.Not(r(sort, n)(root, root),
               description = 'There is no cycle from the root to the root')
     ])
     return cs.to_conjunction(
-        description = 'acyclic_N: No cycles in the structure induced by {}'.format(z)
+        description = 'acyclic_N: No cycles in the structure induced by {}'.format(Z)
     )
 
-def is_struct_footprint(n, struct, z, y):
-    """Tie `z` to the global footprint vector `y`
+def is_struct_footprint(n, struct, Z, y):
+    """Tie `Z` to the global footprint vector `y`
 
     >>> y = FPVector(fpsort, prefix = 'Y', flds = 'next left right data'.split())
-    >>> print(is_struct_footprint(3, sl.tree.struct, z, y))
-    ;; z : SET(Int) equals the global footprints for sl.tree
+    >>> print(is_struct_footprint(3, sl.tree.struct, Z, y))
+    ;; Z : SET(Int) equals the global footprints for sl.tree
     (And
-      ;; z : SET(Int) contains only sl.tree locations
+      ;; Z : SET(Int) contains only sl.tree locations
       (Map(and, Map(and, Xdata, Xleft), Xright) ==
-      Map(=>, z, Map(and, Map(and, Xdata, Xleft), Xright)))
-      ;; All sl.tree footprints equal z : SET(Int)
+      Map(=>, Z, Map(and, Map(and, Xdata, Xleft), Xright)))
+      ;; All sl.tree footprints equal Z : SET(Int)
       (And
-        (z == Ydata)
-        (z == Yleft)
-        (z == Yright)
+        (Z == Ydata)
+        (Z == Yleft)
+        (Z == Yright)
       )
       ;; All other footprints are empty
       (And
@@ -424,19 +430,19 @@ def is_struct_footprint(n, struct, z, y):
         *(X(sort, fld) for fld in sorted(struct.fields))
     )
     subset = c.as_constraint(
-        z.subset_of(intersection),
-        description = '{} contains only {} locations'.format(z, struct.name)
+        Z.subset_of(intersection),
+        description = '{} contains only {} locations'.format(Z, struct.name)
     )
-    equal_exprs = [z.is_identical(fp) for fp in y.fps_for_struct(struct)]
+    equal_exprs = [Z.is_identical(fp) for fp in y.fps_for_struct(struct)]
     struct_equals = c.from_list(equal_exprs)
     empty_exprs = [fp.is_empty() for fp in y.fps_for_other_structs(struct)]
     other_empty = c.from_list(empty_exprs)
     combined = c.from_list([
         subset,
-        struct_equals.to_conjunction(description = 'All {} footprints equal {}'.format(struct.name, z)),
+        struct_equals.to_conjunction(description = 'All {} footprints equal {}'.format(struct.name, Z)),
         other_empty.to_conjunction(description = 'All other footprints are empty')
     ])
-    return combined.to_conjunction('{} equals the global footprints for {}'.format(z, struct.name))
+    return combined.to_conjunction('{} equals the global footprints for {}'.format(Z, struct.name))
 
 def stops_leaf_parent(n, x_p, struct, fld, stop):
     """`x_p` is a `fld`-ancestor of `stop`.
@@ -484,18 +490,18 @@ def stops_leaf_parent(n, x_p, struct, fld, stop):
         description = '{} is a {}-ancestor of the stop node {}'.format(x_p, fld, stop)
     )
 
-def stop_nodes_are_ordered_leaves(n, struct, z, root, *stops):
+def stop_nodes_are_ordered_leaves(n, struct, Z, root, *stops):
     """If there are more than two `stops`, enforce that the stop nodes
-occur in the same order in the tree induced by `z` as in `stops`.
+occur in the same order in the tree induced by `Z` as in `stops`.
 
-    >>> print(stop_nodes_are_ordered_leaves(3, sl.tree.struct, z, sort['root'], sort['s1'], sort['s2'])) # doctest: +ELLIPSIS
-    ;; All adjacent pairs of stop nodes in (s1, s2) are ordered in the induced tree of z : SET(Int)
+    >>> print(stop_nodes_are_ordered_leaves(3, sl.tree.struct, Z, sort['root'], sort['s1'], sort['s2'])) # doctest: +ELLIPSIS
+    ;; All adjacent pairs of stop nodes in (s1, s2) are ordered in the induced tree of Z : SET(Int)
     (And
-      ;; Stop nodes s1 and s2 have a LCA in z : SET(Int)
+      ;; Stop nodes s1 and s2 have a LCA in Z : SET(Int)
       (Or
         ;; x0 is the LCA of s1 and s2
         (And
-          (z[x0])
+          (Z[x0])
           ;; x0 is a left-ancestor of the stop node s1
           (Or
             (sl.tree.left(x0) == s1)
@@ -525,20 +531,21 @@ occur in the same order in the tree induced by `z` as in `stops`.
 
     """
     if len(stops) <= 1:
-        return c.as_constraint(True)
+        msg = 'Stop-node order constraints can only be generated for >= 2 stop nodes, but got {}'
+        raise utils.SlothException(msg.format(len(stops)))
     else:
         sort = struct.sort
 
         def ordered_pair(s, t):
             exprs = [
-                c.And(z.contains(x_p),
+                c.And(Z.contains(x_p),
                       stops_leaf_parent(n, x_p, struct, 'left', s),
                       stops_leaf_parent(n, x_p, struct, 'right', t),
                       description = '{} is the LCA of {} and {}'.format(x_p, s, t))
                 for x_p in xs(sort, n)
             ]
             return c.from_list(exprs).to_disjunction(
-                description = 'Stop nodes {} and {} have a LCA in {}'.format(s, t, z)
+                description = 'Stop nodes {} and {} have a LCA in {}'.format(s, t, Z)
             )
 
         cs_list = [
@@ -547,21 +554,21 @@ occur in the same order in the tree induced by `z` as in `stops`.
         ]
 
         return c.from_list(cs_list).to_conjunction(
-            description = 'All adjacent pairs of stop nodes in {} are ordered in the induced tree of {}'.format(stops, z)
+            description = 'All adjacent pairs of stop nodes in {} are ordered in the induced tree of {}'.format(stops, Z)
         )
 
 __alpha = symbols.data_pred_var(0)
 __beta = symbols.data_pred_var(1)
 
-def unary_data_pred_holds(n, struct, z, pred):
-    """Does the unary data predicate `pred` hold on `z`?
+def unary_data_pred_holds(n, struct, Z, pred):
+    """Does the unary data predicate `pred` hold on `Z`?
 
-    >>> print(unary_data_pred_holds(3, sl.tree.struct, z, sl.alpha < 5))
-    ;; The unary data predicate sl.alpha < 5 holds on z : SET(Int)
+    >>> print(unary_data_pred_holds(3, sl.tree.struct, Z, sl.alpha < 5))
+    ;; The unary data predicate sl.alpha < 5 holds on Z : SET(Int)
     (And
-      (Implies(z[x0], sl.tree.data(x0) < 5))
-      (Implies(z[x1], sl.tree.data(x1) < 5))
-      (Implies(z[x2], sl.tree.data(x2) < 5))
+      (Implies(Z[x0], sl.tree.data(x0) < 5))
+      (Implies(Z[x1], sl.tree.data(x1) < 5))
+      (Implies(Z[x2], sl.tree.data(x2) < 5))
     )
 
     """
@@ -573,22 +580,22 @@ def unary_data_pred_holds(n, struct, z, pred):
         return rewriter.partial_leaf_substitution(pred, {__alpha : term})
 
     cs = c.from_list([
-        z3.Implies(z.contains(x_i), pred_holds_on(x_i))
+        z3.Implies(Z.contains(x_i), pred_holds_on(x_i))
         for x_i in xs(sort, n)]
     )
     return cs.to_conjunction(
-        description = 'The unary data predicate {} holds on {}'.format(pred, z)
+        description = 'The unary data predicate {} holds on {}'.format(pred, Z)
     )
 
-def binary_data_pred_holds(n, struct, z, fld, pred):
-    """Does the binary data predicate `pred` hold on `z`?
+def binary_data_pred_holds(n, struct, Z, fld, pred):
+    """Does the binary data predicate `pred` hold on `Z`?
 
-    >>> print(binary_data_pred_holds(3, sl.tree.struct, z, 'left', sl.alpha < sl.beta))
-    ;; The binary data predicate sl.alpha < sl.beta holds for left descendants in z : SET(Int)
+    >>> print(binary_data_pred_holds(3, sl.tree.struct, Z, 'left', sl.alpha < sl.beta))
+    ;; The binary data predicate sl.alpha < sl.beta holds for left descendants in Z : SET(Int)
     (And
       ;; If x1 is a left-descendant of x0 then (sl.alpha < sl.beta)[sl.alpha/x0,beta/x1] holds
-      (Implies(And(z[x0],
-                  z[x1],
+      (Implies(And(Z[x0],
+                  Z[x1],
                   Or(r3(sl.tree.left(x0), x1),
                      sl.tree.left(x0) == x1)),
               sl.tree.data(x0) < sl.tree.data(x1)))
@@ -609,8 +616,8 @@ def binary_data_pred_holds(n, struct, z, fld, pred):
 
     cs = c.from_list([
         c.as_constraint(
-            z3.Implies(z3.And(z.contains(x_i),
-                              z.contains(x_j),
+            z3.Implies(z3.And(Z.contains(x_i),
+                              Z.contains(x_j),
                               z3.Or(r(sort, n)(f(x_i), x_j),
                                     f(x_i) == x_j)),
                        pred_holds_on(x_i, x_j)),
@@ -620,55 +627,70 @@ def binary_data_pred_holds(n, struct, z, fld, pred):
         if non_identical(x_i, x_j)]
     )
     return cs.to_conjunction(
-        description = 'The binary data predicate {} holds for {} descendants in {}'.format(pred, fld, z)
+        description = 'The binary data predicate {} holds for {} descendants in {}'.format(pred, fld, Z)
     )
 
-def data_preds_hold(n, struct, z, preds):
-    unary = [unary_data_pred_holds(n, struct, z, pred)
+def data_preds_hold(n, struct, Z, preds):
+    unary = [unary_data_pred_holds(n, struct, Z, pred)
              for pred in preds.unary]
-    binary = [binary_data_pred_holds(n, struct, z, fld, pred)
+    binary = [binary_data_pred_holds(n, struct, Z, fld, pred)
               for fld, fld_preds in preds.binary.items()
               for pred in fld_preds]
     return c.from_list(unary + binary).to_conjunction(
         description = 'All data predicates hold')
 
-def struct_encoding(n, y, struct, z, preds, root, *stops):
-    assert isinstance(preds, DataPreds)
-    assert isinstance(y, FPVector)
-    cs_a = [is_struct_footprint(n, struct, z, y),
-            is_acyclic(n, struct, root, z),
-            data_preds_hold(n, struct, z, preds),
-            stop_nodes_are_ordered_leaves(n, struct, z, root, *stops)
+def struct_encoding(n, Y, struct, Z, preds, root, *stops):
+    assert preds is None or isinstance(preds, DataPreds)
+    assert isinstance(Y, FPVector)
+    cs_a = [is_struct_footprint(n, struct, Z, Y),
+            is_acyclic(n, struct, root, Z)
     ]
+    if len(stops) > 1:
+        cs_a.append(stop_nodes_are_ordered_leaves(n, struct, Z, root, *stops))
+    if preds is not None:
+        cs_a.append(data_preds_hold(n, struct, Z, preds))
     A = c.from_list(cs_a).to_conjunction('Structural encoding of list({}, {}) of size {} with data constraints {}'.format(root, stops, n, preds))
-    cs_b = [reach(n, struct, z),
-            defn(n, struct, z, root, *stops)
+    cs_b = [reach(n, struct, Z),
+            defn(n, struct, Z, root, *stops)
     ]
     B = c.from_list(cs_a).to_conjunction('Footprint encoding of list({}, {}) of size {}'.format(root, stops, n, preds))
-    return SplitEnc(A, B, [z] + list(rs(struct.sort, n)))
+    #return SplitEnc(A, B, [Z] + list(rs(struct.sort, n)))
+    return SplitEnc(A, B, set(rs(struct.sort, n)).union((Z,)))
 
-def bounded_encoding(n, y, structs, struct, z, preds, root, *stops):
+def call_encoding(config, call, Y):
+    assert isinstance(call, slast.PredCall)
+    assert isinstance(Y, FPVector)
+    n = sum(config.bounds_by_struct.values())
+    assert n > 0, 'No size bound defined in config'
+    Z = config.get_fresh_fp()
+    if call.pred is not None:
+        dp = DataPreds((call.fld, call.pred))
+    else:
+        dp = None
+    return struct_encoding(n, Y, call.struct, Z, dp, call.root, *call.stop_nodes)
+
+
+def bounded_encoding(n, structs, Y, struct, Z, preds, root, *stops):
     "Top-level encoding of a formula that is a single predicate call."
     assert struct in structs
-    sort = struct.sort
-    A, B, Z = struct_encoding(n, y, struct, z, preds, root, *stops)
+    A, B, _ = struct_encoding(n, Y, struct, Z, preds, root, *stops)
     return c.And(
-        is_bounded_heap_interpretation(n, sort, structs),
+        is_bounded_heap_interpretation(n,  structs),
         A,
         B
     )
 
-def z3_input(n, y, structs, struct, preds, root, *stops):
-    z = struct.fp_sort['z'] # TODO: Ensure z is fresh!
-    cs = bounded_encoding(n, y, structs, struct, z, preds, root, *stops)
+def z3_input(n, Y, structs, struct, preds, root, *stops):
+    Z = struct.fp_sort['Z'] # TODO: Ensure z is fresh!
+    cs = bounded_encoding(n, structs, Y, struct, Z, preds, root, *stops)
     consts = ([root]
               + list(stops)
               + [struct.null for struct in structs]
-              + [z]
-              + y.all_fps()
+              + [Z]
+              + Y.all_fps()
               + list(xs(struct.sort, n))
               + list(Xs(struct.sort, structs)))
     funs = itertools.chain(*(s.heap_fns() for s in structs),
                            rs(struct.sort, n))
     decls = c.SmtDecls(consts, funs)
-    return c.Z3Input(cs, decls)
+    return c.Z3Input(cs, decls = decls)
