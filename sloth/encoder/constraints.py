@@ -187,7 +187,7 @@ class Iff(BinOp):
 
 class SmtDecls:
     def __init__(self, consts = [], funs = [], sorts = []):
-        self.consts = [self._to_ref(c) for c in consts]
+        self.consts = list(consts)
         self.funs = list(funs)
         self.sorts = list(sorts)
 
@@ -199,10 +199,11 @@ class SmtDecls:
                 "Can't convert {} of type {} to z3 expression reference".format(c, type(c).__name__)
             return c.ref
 
+
     def to_smt2_string(self):
         sorts = sorted(map(serialization.smt_sort_decl, self.sorts))
         # TODO: Convert FPs to refs
-        consts = sorted(map(serialization.smt_const_decl, self.consts))
+        consts = sorted(map(serialization.smt_const_decl, map(self._to_ref, self.consts)))
         funs = sorted(map(serialization.smt_fun_decl, self.funs))
         all_decls = itertools.chain(sorts, consts, funs)
         return '\n'.join(all_decls)
@@ -263,7 +264,7 @@ class Z3Input:
                 consts.add_loc_consts(struct, *locs)
             consts.add_data_consts(*astutils.data_consts(self.encoded_ast))
             #print ('Decls: {}'.format(self.decls))
-            for decl in self.decls:
+            for decl in self.decls.consts:
                 # TODO: Properly add consts. Problem: Introduced loc/FP consts are not stored by struct. It's unclear whether we want to have per-struct FPs in the long run anyway, so we can decide what to do about this later
                 # FIXME: Non-FP consts introduced by the encoding are not added at all. Is that what we want. (it might actually be, because we don't really care about the auxiliary variables from the unfolding)
                 if isinstance(decl, generic.Set):
