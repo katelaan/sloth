@@ -84,7 +84,7 @@ def is_bounded_heap_interpretation(n, structs):
     ;; Delta_SL(3)
     (And
       ;; Global FP is the union of all field FPs
-      (X == Map(or, Map(or, Xnext, Xleft), Xright))
+      (X == Map(or, Map(or, Map(or, Xdata, Xleft), Xnext), Xright))
       ;; Global FP is subset of {x_1,...x_n}
       (Map(=>,
           X,
@@ -109,8 +109,9 @@ def is_bounded_heap_interpretation(n, structs):
     sort = sort.pop()
 
     cs = c.ConstraintList()
-    flds = utils.flatten(s.structural_fields for s in structs)
 
+    # Union constraint for all fields including data fields
+    flds = sorted(set(utils.flatten(s.fields for s in structs)), key=str)
     xfs = (X(sort, fld) for fld in flds)
     cs.append_expr(X(sort).is_union_of_all(*xfs),
                    description = 'Global FP is the union of all field FPs')
@@ -123,6 +124,7 @@ def is_bounded_heap_interpretation(n, structs):
         cs.append_expr(z3.Not(X(sort).contains(s.null)),
                                 description = 'Null is not allocated')
 
+    # Disjointness constraints only for structural fields
     for i in range(len(structs)):
         for j in range(i+1, len(structs)):
             for f in structs[i].structural_fields:
@@ -278,6 +280,7 @@ def reach(n, struct, Z, *stops):
 
     """
     exprs = [R(n, k+1, struct, Z, *stops) for k in range(n)]
+    #exprs = [struct.null == struct.null]
     cs = c.from_list(exprs)
     return cs.to_conjunction(description = 'Define reachability predicates')
 
@@ -405,11 +408,12 @@ def is_acyclic(n, struct, root, Z):
 
     """
     sort = struct.sort
-    cs = c.from_list([
-        parents(n, struct, Z),
-        c.Not(r(sort, n)(root, root),
-              description = 'There is no cycle from the root to the root')
-    ])
+    if n > 1:
+        ls = [parents(n, struct, Z)]
+    else:
+        ls = []
+    ls.append(c.Not(r(sort, n)(root, root), description = 'There is no cycle from the root to the root'))
+    cs = c.from_list(ls)
     return cs.to_conjunction(
         description = 'acyclic_N: No cycles in the structure induced by {}'.format(Z)
     )
@@ -473,7 +477,7 @@ def all_leaves_are_stop_nodes(n, Z, struct, *stops):
     fld_fns = [(fld, struct.heap_fn(fld)) for fld in struct.structural_fields]
     exprs = [c.Implies(
         z3.And(Z.contains(x_i), z3.Not(Z.contains(fld_fn(x_i)))),
-        is_stop_node(struct, x_i, *stops),
+        is_stop_node(struct, fld_fn(x_i), *stops),
         description = "If the {}-successor of {} isn't alloced it's a stop node".format(fld, x_i))
              for x_i in xs(sort, n)
              for fld, fld_fn in fld_fns]

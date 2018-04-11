@@ -16,8 +16,8 @@ from ..utils import utils
 from . import model
 from .graph import Graph, canonicalize, DATA_FLD
 
-def show_evaluation_steps(sl, sl_expr, export_file = None):
-    e = topdown.encode_sl_expr(sl, sl_expr)
+def show_evaluation_steps(sl, sl_expr, export_file = None, override_bound = None):
+    e = topdown.encode_sl_expr(sl, sl_expr, override_bound = override_bound)
     print('Constraint:\n-----------')
     print(e.constraint)
     if export_file is not None:
@@ -60,7 +60,7 @@ def isomorphic(m1, m2):
     g2 = _as_graph(m2)
     return canonicalize(g1) == canonicalize(g2)
 
-def evaluate_to_graph(sl, sl_expr):
+def evaluate_to_graph(sl, sl_expr, ignore_null = False):
     """
     >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
     >>> evaluate_to_graph(sl, sl_expr)
@@ -68,12 +68,14 @@ def evaluate_to_graph(sl, sl_expr):
 
     """
     m = topdown.model_of_sl_expr(sl, sl_expr)
-    return canonical_graph(m)
+    return canonical_graph(m, ignore_null)
 
-def canonical_graph(m):
-    return canonicalize(graph_from_smt_model(m))
+def canonical_graph(m, ignore_null = False):
+    g = graph_from_smt_model(m, ignore_null)
+    #print('Non-canonical graph:\n{}'.format(g))
+    return canonicalize(g)
 
-def graph_from_smt_model(m):
+def graph_from_smt_model(m, ignore_null = False):
     """Construct a graph model from an SMT model.
 
     >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
@@ -87,15 +89,26 @@ def graph_from_smt_model(m):
     ]
 
     """
+    # TODO: Split into smaller parts
 
     vals = set()
     ptrs = {}
     stack = {}
     for s, sm in m.struct_models.items():
         vals.update(map(lambda l: l.as_long(), sm.locs))
-        null_val = sm.null()
-        vals.add(null_val)
-        stack[str(s.null)] = null_val
+        if not ignore_null:
+            null = sm.null()
+            try:
+                null_val = null.as_long()
+            except AttributeError:
+                # Sometimes z3 may not interpret null (if it's not relevant for the query)
+                # That's fine, we'll not add null to the graph then.
+                pass
+            else:
+                # Null is in the model => Add to graph
+                vals.add(null_val)
+                stack[str(s.null)] = null_val
+
         for c in sm.loc_consts():
             v = m.val_of(c).as_long()
             #print('{} : {}'.format(c, v))

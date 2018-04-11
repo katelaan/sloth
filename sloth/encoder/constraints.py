@@ -94,7 +94,8 @@ def pretty_print(constraint, indent = '  ',
     lines = []
 
     if constraint.sl_expr is not None:
-        lines.append(';; {}'.format(constraint.sl_expr))
+        # TODO: Remove excess whitespace (introduced by the indent)
+        lines.append(';; {}'.format(str(constraint.sl_expr).replace('\n', '')))
     if constraint.description is not None:
         lines.append(';; ' + constraint.description)
 

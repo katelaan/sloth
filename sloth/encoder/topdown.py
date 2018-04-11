@@ -11,6 +11,12 @@
 We test the encoder for formulas that do not contain calls. Formulas
 with calls are tested separately for each call encoding.
 
+Note that for some inputs that don't explicitly reference null,
+whether z3 includes null in the model cannot be predicted. In such
+cases, we pass the `ignore_null` flag to the evaluation function to
+suppress including null nodes in the graph model. This way we don't
+care whether null is in z3's model or not.
+
 Single pointers and small separating conjunctions of pointers / equalities
 --------------------------------------------------------------------------
 
@@ -32,14 +38,14 @@ Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3}, {'sl.list.null': 0, 'x': 1
 >>> eval_(sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null)))
 Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3})
 >>> eval_(sl.list.eq(x,y))
-Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1, 'y': 1})
+Graph({0}, {}, {'x': 0, 'y': 0})
 >>> eval_(sl.sepcon(sl.list.pointsto(x, y), sl.list.eq(x, y)))
 Graph({0, 1}, {(1, 'next'): 1}, {'sl.list.null': 0, 'x': 1, 'y': 1})
 
 Mixing data structures in one expression:
 
->>> eval_(sl.sepcon(sl.list.pointsto(x,y), sl.tree.pointsto(t,u,v)))
-Graph({0, 1, 2, 3, 4, 5, 6}, {(2, 'left'): 3, (2, 'right'): 4, (5, 'next'): 6}, {'sl.list.null': 0, 'sl.tree.null': 1, 't': 2, 'u': 3, 'v': 4, 'x': 5, 'y': 6})
+>>> eval_(sl.sepcon(sl.list.pointsto(x,y), sl.tree.pointsto(t,u,v)), ignore_null = True)
+Graph({0, 1, 2, 3, 4}, {(0, 'left'): 1, (0, 'right'): 2, (3, 'next'): 4}, {'t': 0, 'u': 1, 'v': 2, 'x': 3, 'y': 4})
 
 Input with Boolean structure
 ----------------------------
@@ -48,10 +54,10 @@ Input with Boolean structure
 Graph({0, 1, 2}, {(1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 1})
 >>> eval_(z3.And(sl.list.pointsto(x,y), sl.list.pointsto(x, sl.list.null)))
 Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 0})
->>> eval_(z3.Or(sl.list.pointsto(x,y), sl.tree.pointsto(t, u, v)))
-Graph({0, 1, 2, 3, 4, 5}, {(2, 'left'): 3, (2, 'right'): 4}, {'sl.list.null': 0, 'sl.tree.null': 1, 't': 2, 'u': 3, 'v': 4, 'x': 5})
+>>> eval_(z3.Or(sl.list.pointsto(x,y), sl.tree.pointsto(t, u, v)), ignore_null = True)
+Graph({0, 1, 2, 3}, {(0, 'left'): 1, (0, 'right'): 2}, {'t': 0, 'u': 1, 'v': 2, 'x': 3})
 >>> eval_(z3.Not(sl.list.pointsto(x,y)))
-Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1})
+Graph({0}, {}, {'x': 0})
 >>> eval_(z3.And(sl.list.pointsto(y,x), z3.Not(sl.list.pointsto(x,y))))
 Graph({0, 1, 2}, {(2, 'next'): 1}, {'sl.list.null': 0, 'x': 1, 'y': 2})
 >>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(y, z)), sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(y, x))))
@@ -142,14 +148,20 @@ def sl_expr_is_sat(sl, sl_expr):
     e = encode_sl_expr(sl, sl_expr)
     return z3api.is_sat(e.to_z3_expr())
 
-def encode_sl_expr(sl, sl_expr):
+def encode_sl_expr(sl, sl_expr, override_bound = None):
     structs = structs_in_expr(sl, sl_expr)
     ast = astbuilder.ast(structs, sl_expr)
     bounds = compute_size_bounds(structs, ast)
+    if override_bound is not None:
+        bounds = {s : override_bound for s in bounds}
     # TODO: Can we have one set of fresh variables and one delta formula per struct? Meaning that we can encode lists and trees separately?
     n = sum(bounds.values())
     if n > 0:
-        print('Computed bounds: {}'.format(bounds))
+        if override_bound is not None:
+            note = ' [MANUAL OVERRIDE]'
+        else:
+            note = ''
+        print('Computed bounds: {}{}'.format(bounds, note))
         # TODO: Get rid of the explicit sort in the direct encoder API
         global_encoder_fn = functools.partial(direct.is_bounded_heap_interpretation, n, structs)
         # TODO: Ensure we pass in the right parameters. Possibly change the API somehwat.
@@ -259,12 +271,14 @@ def encode_ast(config, ast):
     if config.global_encoder_fn is not None:
         cs.append(config.global_encoder_fn())
     consts = astutils.consts_by_struct(ast, config.structs)
+    dconsts = astutils.data_consts(ast)
     heap_funs = itertools.chain(*(s.heap_fns() for s in config.structs))
     nulls = [struct.null for struct in config.structs]
     decls = set(itertools.chain(Z,
                                 X.all_fps(),
                                 [config.fp_sort['X']],
                                 *consts.values(),
+                                dconsts,
                                 nulls,
                                 heap_funs))
     return c.Z3Input(constraint = c.And(*cs),
