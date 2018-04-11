@@ -8,9 +8,6 @@
    from sloth.encoder.topdown import *
    from sloth.model.checks import evaluate_to_graph
 
-We test the encoder for formulas that do not contain calls. Formulas
-with calls are tested separately for each call encoding.
-
 Note that for some inputs that don't explicitly reference null,
 whether z3 includes null in the model cannot be predicted. In such
 cases, we pass the `ignore_null` flag to the evaluation function to
@@ -94,6 +91,45 @@ Graph({0, 1, 2}, {(1, 'data'): 43, (1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 
 >>> eval_(z3.And(sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d > 42), z3.Not(sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d < 9000))))
 Graph({0, 1, 2}, {(1, 'data'): 9000, (1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2}, {'d': 9000})
 
+Benchmarks with calls
+---------------------
+
+>>> eval_(sl.list(x))
+Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1})
+>>> eval_(sl.list.seg(x, y))
+Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1, 'y': 1})
+>>> eval_(z3.And(sl.list.seg(x, y), sl.list.eq(x, sl.list.null)))
+Graph({0}, {}, {'sl.list.null': 0, 'x': 0, 'y': 0})
+>>> eval_(z3.And(sl.list.seg(x, y), z3.Not(sl.list.eq(x, sl.list.null)), z3.Not(sl.list.eq(x, y))))
+Graph({0, 1, 2}, {(1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2})
+>>> eval_(sl.list.seg(x, sl.list.null))
+Graph({0}, {}, {'sl.list.null': 0, 'x': 0})
+>>> eval_(sl.sepcon(sl.list.seg(x, sl.list.null), sl.list.neq(x, sl.list.null)))
+Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1})
+>>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d)), sl.list(x)))
+Graph({0, 1}, {(1, 'data'): 2, (1, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 0}, {'d': 2})
+
+When using the ordinary list predicate, longer lists end in null as well:
+
+>>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e)), sl.list(x)))
+Graph({0, 1, 2}, {(1, 'data'): 2, (1, 'next'): 2, (2, 'data'): 4, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 0}, {'d': 2, 'e': 4})
+
+With the segment predicate, the stop node is deterministically interpreted as distinct from null (which is fine but not required by our semantics)...
+
+>>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e)), sl.list.seg(x, z)))
+Graph({0, 1, 2, 3}, {(1, 'data'): 1, (1, 'next'): 2, (2, 'data'): 3, (2, 'next'): 3}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3}, {'d': 1, 'e': 3})
+
+...so we can force it to be null:
+
+>>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e), sl.list.eq(z, sl.list.null)), sl.list.seg(x, z)))
+Graph({0, 1, 2}, {(1, 'data'): 2, (1, 'next'): 2, (2, 'data'): 4, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 0}, {'d': 2, 'e': 4})
+
+>>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e), sl.list.eq(sl.list.null,z)), sl.list.seg(x, z)))
+Graph({0, 1, 2}, {(1, 'data'): 2, (1, 'next'): 2, (2, 'data'): 4, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 0}, {'d': 2, 'e': 4})
+
+>>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,sl.list.null), sl.list.data(y,e)), sl.list(x)))
+Graph({0, 1, 2}, {(1, 'data'): 2, (1, 'next'): 2, (2, 'data'): 4, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2}, {'d': 2, 'e': 4})
+
 """
 
 import functools, itertools
@@ -161,7 +197,7 @@ def encode_sl_expr(sl, sl_expr, override_bound = None):
             note = ' [MANUAL OVERRIDE]'
         else:
             note = ''
-        print('Computed bounds: {}{}'.format(bounds, note))
+        logger.info('Computed bounds: {}{}'.format(bounds, note))
         # TODO: Get rid of the explicit sort in the direct encoder API
         global_encoder_fn = functools.partial(direct.is_bounded_heap_interpretation, n, structs)
         # TODO: Ensure we pass in the right parameters. Possibly change the API somehwat.
@@ -299,7 +335,7 @@ def encode_boolean(config, X, ast):
         connection = c.And(*all_equal(Y, X),
                            description = 'Connecting spatial formula to global constraint')
         A = c.And(A1, connection,
-                  description = 'Placing {} in the global context'.format(ast.to_sl_expr()))
+                  description = 'Placing {} in the global context'.format(str(ast.to_sl_expr()).replace('\n','')))
         Z = Z1.union(Y.all_fps())
         return SplitEnc(A, B, Z)
 
@@ -325,7 +361,10 @@ def encode_spatial(config, ast, Y):
         raise utils.SlothException(msg.format(type_))
 
 def encode_eq(eq, Y):
-    A = c.as_constraint(eq.left == eq.right)
+    expr = eq.left == eq.right
+    if eq.negated:
+        expr = z3.Not(expr)
+    A = c.as_constraint(expr)
     B = c.And(*(fp.is_empty() for fp in Y.all_fps()))
     return as_split_constraints(A, B, eq)
 

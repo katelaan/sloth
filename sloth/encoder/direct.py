@@ -472,6 +472,17 @@ def root_alloced_or_stop(Z, root, stop):
     )
     return c.as_constraint(expr, description = 'The root {} is allocated or equal to {}'.format(root, stop))
 
+def stop_node_occurs(n, struct, Z, stop):
+    return c.Or(
+        Z.is_empty(),
+        *[c.And(Z.contains(x_i),
+                symbols.LOr([stop == struct.heap_fn(fld)(x_i)
+                             for fld in struct.structural_fields]),
+                description = '{} is alloced and one of its successors is stop node {}'.format(x_i, stop))
+          for x_i in xs(struct.sort, n)],
+        description = 'If the {} is non-empty, it contains the stop node {}'.format(struct.unqualified_name, stop)
+    )
+
 def all_leaves_are_stop_nodes(n, Z, struct, *stops):
     sort = struct.sort
     fld_fns = [(fld, struct.heap_fn(fld)) for fld in struct.structural_fields]
@@ -692,6 +703,8 @@ def struct_encoding(n, Y, struct, Z, preds, root, *stops):
             stop = stops[0]
         except:
             stop = struct.null
+        else:
+            cs_a.append(stop_node_occurs(n, struct, Z, stop))
         cs_a.append(root_alloced_or_stop(Z, root, stop))
     if preds is not None:
         cs_a.append(data_preds_hold(n, struct, Z, preds))

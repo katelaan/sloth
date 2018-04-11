@@ -75,7 +75,15 @@ def canonical_graph(m, ignore_null = False):
     #print('Non-canonical graph:\n{}'.format(g))
     return canonicalize(g)
 
-def graph_from_smt_model(m, ignore_null = False):
+def is_aux_var(x):
+    # TODO: This naming scheme should not be hardcoded here!
+    s = str(x)
+    try:
+        return s[0] == 'x' and int(s[1:]) >= 0
+    except:
+        return False
+
+def graph_from_smt_model(m, ignore_null = False, skip_fn = is_aux_var):
     """Construct a graph model from an SMT model.
 
     >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
@@ -128,13 +136,14 @@ def graph_from_smt_model(m, ignore_null = False):
     # Add data evaluation to the stack
     data = {}
     for c, v_ref in m.data.items():
-        try:
-            int_val = v_ref.as_long()
-        except:
-            # FP var or reachability func interpretation => Skip
-            pass
-        else:
-            data[str(c)] = int_val
+        if not skip_fn(c):
+            try:
+                int_val = v_ref.as_long()
+            except:
+                # FP var or reachability func interpretation => Skip
+                pass
+            else:
+                data[str(c)] = int_val
 
     # Filter out isolated nodes
     non_isolated = set(itertools.chain(stack.values(),
