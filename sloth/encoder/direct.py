@@ -10,6 +10,8 @@
 
 """
 
+# FIXME: Ensure that the names x0, ... r1, ... etc are unused!
+
 import itertools
 
 import z3
@@ -663,7 +665,7 @@ def struct_encoding(n, Y, struct, Z, preds, root, *stops):
     cs_b = [reach(n, struct, Z),
             defn(n, struct, Z, root, *stops)
     ]
-    B = c.from_list(cs_a).to_conjunction('Footprint encoding of list({}, {}) of size {}'.format(root, stops, n, preds))
+    B = c.from_list(cs_b).to_conjunction('Footprint encoding of list({}, {}) of size {}'.format(root, stops, n, preds))
     fresh_decls = set(itertools.chain([Z],
                                       xs(struct.sort, n),
                                       rs(struct.sort, n)))

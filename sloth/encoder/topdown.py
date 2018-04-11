@@ -251,6 +251,8 @@ def encode_ast(config, ast):
     X = FPVector(config.fp_sort, 'X', config.flds)
     config.next_fp_ix = 0 # Reset the next free FP id to 0 for consistent naming
     A, B, Z = encode_boolean(config, X, ast)
+    A = c.And(A, description = '***** A *****')
+    B = c.And(B, description = '***** B *****')
     cs = [A,B]
     if config.global_encoder_fn is not None:
         cs.append(config.global_encoder_fn())
@@ -278,8 +280,10 @@ def encode_boolean(config, X, ast):
     else:
         Y = config.get_fresh_fpvector()
         A1, B, Z1 = encode_spatial(config, ast, Y)
-        A = c.And(A1, *all_equal(Y, X),
-                  description = 'Connecting spatial formula to global constraint')
+        connection = c.And(*all_equal(Y, X),
+                           description = 'Connecting spatial formula to global constraint')
+        A = c.And(A1, connection,
+                  description = 'Placing {} in the global context'.format(ast.to_sl_expr()))
         Z = Z1.union(Y.all_fps())
         return SplitEnc(A, B, Z)
 
@@ -289,7 +293,7 @@ def encode_spatial(config, ast, Y):
         return encode_sepcon(config, ast, Y)
     elif type_ == slast.PredCall:
         if config.encode_call_fn is None:
-            raise utils.SlothException("No call encoder specified")
+            raise utils.SlothException('No call encoder specified')
         else:
             return config.encode_call_fn(config, ast, Y)
     elif type_ == slast.DataAtom:

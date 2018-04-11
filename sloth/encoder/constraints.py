@@ -125,6 +125,10 @@ class BaseConstraint(SmtConstraint):
     def __iter__(self):
         return iter()
 
+    def __repr__(self):
+        cls_name = type(self).__name__
+        return '{}({!r}, {!r}, {!r})'.format(cls_name, self.constraint, self.sl_expr, self.description)
+
     def is_leaf(self):
         return True
 
@@ -136,6 +140,11 @@ class VarArgOp(SmtConstraint):
         self.constraints = [as_constraint(c) for c in constraints]
         self.sl_expr = sl_expr
         self.description = description
+
+    def __repr__(self):
+        cls_name = type(self).__name__
+        constraints = ', '.join(map(repr, self.constraints))
+        return '{}({}, {!r}, {!r})'.format(cls_name, constraints, self.sl_expr, self.description)
 
     def __iter__(self):
         return iter(self.constraints)
@@ -175,8 +184,12 @@ class BinOp(SmtConstraint):
         yield self.left
         yield self.right
 
+    def __repr__(self):
+        cls_name = type(self).__name__
+        return '{}(left = {!r}, right = {!r}, sl_expr = {!r}, description = {!r})'.format(cls_name, self.left, self.right, self.sl_expr, self.description)
+
     def to_z3_expr(self):
-        return self.op(self.left.to_z3_expr(), self.right.to_z3_expr())
+        return type(self).op(self.left.to_z3_expr(), self.right.to_z3_expr())
 
 class Implies(BinOp):
     op = z3.Implies
@@ -198,7 +211,6 @@ class SmtDecls:
             assert isinstance(c, generic.Set), \
                 "Can't convert {} of type {} to z3 expression reference".format(c, type(c).__name__)
             return c.ref
-
 
     def to_smt2_string(self):
         sorts = sorted(map(serialization.smt_sort_decl, self.sorts))
