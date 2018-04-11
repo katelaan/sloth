@@ -435,13 +435,16 @@ def is_struct_footprint(n, struct, Z, y):
     )
     equal_exprs = [Z.is_identical(fp) for fp in y.fps_for_struct(struct)]
     struct_equals = c.from_list(equal_exprs)
-    empty_exprs = [fp.is_empty() for fp in y.fps_for_other_structs(struct)]
-    other_empty = c.from_list(empty_exprs)
-    combined = c.from_list([
+    ls = [
         subset,
         struct_equals.to_conjunction(description = 'All {} footprints equal {}'.format(struct.name, Z)),
-        other_empty.to_conjunction(description = 'All other footprints are empty')
-    ])
+    ]
+    empty_exprs = [fp.is_empty() for fp in y.fps_for_other_structs(struct)]
+    if empty_exprs:
+        other_empty = c.from_list(empty_exprs)
+        ls.append(other_empty.to_conjunction(description = 'All other footprints are empty'))
+
+    combined = c.from_list(ls)
     return combined.to_conjunction('{} equals the global footprints for {}'.format(Z, struct.name))
 
 def stops_leaf_parent(n, x_p, struct, fld, stop):
@@ -654,10 +657,13 @@ def struct_encoding(n, Y, struct, Z, preds, root, *stops):
             defn(n, struct, Z, root, *stops)
     ]
     B = c.from_list(cs_a).to_conjunction('Footprint encoding of list({}, {}) of size {}'.format(root, stops, n, preds))
-    #return SplitEnc(A, B, [Z] + list(rs(struct.sort, n)))
-    return SplitEnc(A, B, set(rs(struct.sort, n)).union((Z,)))
+    fresh_decls = set(itertools.chain([Z],
+                                      xs(struct.sort, n),
+                                      rs(struct.sort, n)))
+    return SplitEnc(A, B, fresh_decls)
 
 def call_encoding(config, call, Y):
+    "Encode the given predicate call `call` w.r.t. the footprint `Y`."
     assert isinstance(call, slast.PredCall)
     assert isinstance(Y, FPVector)
     n = sum(config.bounds_by_struct.values())
@@ -668,7 +674,6 @@ def call_encoding(config, call, Y):
     else:
         dp = None
     return struct_encoding(n, Y, call.struct, Z, dp, call.root, *call.stop_nodes)
-
 
 def bounded_encoding(n, structs, Y, struct, Z, preds, root, *stops):
     "Top-level encoding of a formula that is a single predicate call."
@@ -681,7 +686,14 @@ def bounded_encoding(n, structs, Y, struct, Z, preds, root, *stops):
     )
 
 def z3_input(n, Y, structs, struct, preds, root, *stops):
-    Z = struct.fp_sort['Z'] # TODO: Ensure z is fresh!
+    """Generate a standalone Z3 input for the given call parameters.
+
+    This is meant for testing individual calls, *not* for use inside
+    the encoding of the entire separation logic. For the latter, see
+    :func:`call_encoding` and :func:`is_bounded_heap_interpretation`.
+
+    """
+    Z = struct.fp_sort['Z']
     cs = bounded_encoding(n, structs, Y, struct, Z, preds, root, *stops)
     consts = ([root]
               + list(stops)

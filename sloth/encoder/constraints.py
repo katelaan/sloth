@@ -200,18 +200,36 @@ class SmtDecls:
             return c.ref
 
     def to_smt2_string(self):
-        sorts = map(serialization.smt_sort_decl, self.sorts)
+        sorts = sorted(map(serialization.smt_sort_decl, self.sorts))
         # TODO: Convert FPs to refs
-        consts = map(serialization.smt_const_decl, self.consts)
-        funs = map(serialization.smt_fun_decl, self.funs)
+        consts = sorted(map(serialization.smt_const_decl, self.consts))
+        funs = sorted(map(serialization.smt_fun_decl, self.funs))
         all_decls = itertools.chain(sorts, consts, funs)
         return '\n'.join(all_decls)
+
+    @classmethod
+    def from_iterable(cls, decls):
+        consts = []
+        funs = []
+        for d in decls:
+            #print('{} {}'.format(d, type(d).__name__))
+            if isinstance(d, z3.FuncDeclRef):
+                funs.append(d)
+            else:
+                assert isinstance(d, z3.ExprRef) or isinstance(d, generic.Set), \
+                    "Can't treat {} of type {} as declaration".format(d, type(d).__name__)
+                consts.append(d)
+        return cls(consts, funs)
+
 
 class Z3Input:
     def __init__(self, constraint, encoded_ast = None, decls = None):
         self.constraint = constraint
         self.encoded_ast = encoded_ast
-        self.decls = decls
+        if isinstance(decls, SmtDecls):
+            self.decls = decls
+        else:
+            self.decls = SmtDecls.from_iterable(decls)
 
     def to_smt2_string(self, check_sat = True, get_model = True):
         cmds = ''

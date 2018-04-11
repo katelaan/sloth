@@ -14,11 +14,12 @@ from ..utils import utils
 from . import model
 from .graph import Graph, canonicalize
 
-
-def show_evaluation_steps(sl, sl_expr):
+def show_evaluation_steps(sl, sl_expr, export_file = None):
     e = topdown.encode_sl_expr(sl, sl_expr)
     print('Constraint:\n-----------')
     print(e.constraint)
+    if export_file is not None:
+        e.to_file(export_file)
     z3e = e.to_z3_expr()
     print('\n\nAs Z3 expression:\n-----------------')
     print(z3e)

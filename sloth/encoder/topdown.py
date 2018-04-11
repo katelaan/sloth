@@ -247,15 +247,24 @@ def as_split_constraints(A, B, ast, fresh = None):
     return SplitEnc(A, B, fresh)
 
 def encode_ast(config, ast):
+    # TODO: Make 'X' into a constant (see also use below as well as in the conversion of models to graphs)
     X = FPVector(config.fp_sort, 'X', config.flds)
     config.next_fp_ix = 0 # Reset the next free FP id to 0 for consistent naming
     A, B, Z = encode_boolean(config, X, ast)
     cs = [A,B]
     if config.global_encoder_fn is not None:
         cs.append(config.global_encoder_fn())
-    # TODO: Is it correct to include the global constraint in Z?
+    consts = astutils.consts_by_struct(ast, config.structs)
+    heap_funs = itertools.chain(*(s.heap_fns() for s in config.structs))
+    nulls = [struct.null for struct in config.structs]
+    decls = set(itertools.chain(Z,
+                                X.all_fps(),
+                                [config.fp_sort['X']],
+                                *consts.values(),
+                                nulls,
+                                heap_funs))
     return c.Z3Input(constraint = c.And(*cs),
-                     decls = Z.union(X.all_fps()),
+                     decls = decls,
                      encoded_ast = ast)
 
 def encode_boolean(config, X, ast):
