@@ -20,7 +20,8 @@ def smt_sort_str(sort):
 def smt_const_decl(c):
     assert isinstance(c, z3.ExprRef), \
         "Received {} of type {} != ExprRef".format(c, type(c).__name__)
-    assert(c.decl().arity() == 0)
+    assert c.decl().arity() == 0, \
+        "Received {} of arity {} != 0 as const decl".format(c, c.decl().arity())
     return '(declare-fun {} () {})'.format(c, smt_sort_str(c.decl().range()))
 
 def smt_list(ls):

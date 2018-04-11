@@ -91,8 +91,8 @@ Graph({0, 1, 2}, {(1, 'data'): 43, (1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 
 >>> eval_(z3.And(sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d > 42), z3.Not(sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d < 9000))))
 Graph({0, 1, 2}, {(1, 'data'): 9000, (1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2}, {'d': 9000})
 
-Benchmarks with calls
----------------------
+Benchmarks with list calls
+--------------------------
 
 >>> eval_(sl.list(x))
 Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1})
@@ -129,6 +129,12 @@ Graph({0, 1, 2}, {(1, 'data'): 2, (1, 'next'): 2, (2, 'data'): 4, (2, 'next'): 0
 
 >>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,sl.list.null), sl.list.data(y,e)), sl.list(x)))
 Graph({0, 1, 2}, {(1, 'data'): 2, (1, 'next'): 2, (2, 'data'): 4, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2}, {'d': 2, 'e': 4})
+
+List calls with data
+--------------------
+
+>>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,sl.list.null), sl.list.data(y,e)), sl.list.dpred.unary(sl.alpha == 123, x)))
+Graph({0, 1, 2}, {(1, 'data'): 123, (1, 'next'): 2, (2, 'data'): 123, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2}, {'d': 123, 'e': 123})
 
 """
 

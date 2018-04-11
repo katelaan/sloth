@@ -141,6 +141,7 @@ class PredCall(SlAst):
         assert (fld is None) or isinstance(fld, str)
         assert (fld is None) or (pred is not None), \
                 'Data predicate field is set, but not the predicate itself'
+        assert (pred is None) or isinstance(pred, DataAtom)
         assert isinstance(root, ExprRef), \
             'Cannot use {} of type {} as data structure root'.format(root, type(root).__name__)
         self.struct = struct
