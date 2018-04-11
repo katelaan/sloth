@@ -84,14 +84,12 @@ def is_bounded_heap_interpretation(n, structs):
       ;; Global FP is the union of all field FPs
       (X == Map(or, Map(or, Xnext, Xleft), Xright))
       ;; Global FP is subset of {x_1,...x_n}
-      (Store(Store(Store(K(Int, False), x0, True), x1, True),
-            x2,
-            True) ==
-      Map(=>,
+      (Map(=>,
           X,
           Store(Store(Store(K(Int, False), x0, True), x1, True),
                 x2,
-                True)))
+                True)) ==
+      K(Int, True))
       ;; Null is not allocated
       (Not(X[sl.list.null]))
       ;; Null is not allocated
@@ -345,14 +343,23 @@ def parents(n, struct, Z):
     """
     flds = struct.structural_fields
     sort = struct.sort
-    exprs = [z3.Implies(Z.contains(x_i),
+
+    ls = []
+
+    if not struct.is_linear():
+        # Ensure that if a node has the same successor twice, they are both null
+        # This only makes sense for branching structures
+        exprs = [z3.Implies(Z.contains(x_i),
                         symbols.LAnd([
                             z3.Implies(struct.heap_fn(f)(x_i) == struct.heap_fn(g)(x_i),
                                        struct.heap_fn(f)(x_i) == struct.null)
                             for f,g in itertools.combinations(flds, 2)
                         ]))
-             for x_i in xs(sort, n)]
-    cs_single = c.from_list(exprs)
+                 for x_i in xs(sort, n)]
+        cs_single = c.from_list(exprs)
+        ls.append(
+            cs_single.to_conjunction(description = 'If a node has two identical successors they are both null')
+        )
 
     def all_succs_different(x_i, x_j):
         return symbols.LAnd(
@@ -367,10 +374,10 @@ def parents(n, struct, Z):
         for x_i, x_j in itertools.combinations(xs(sort, n), 2)
     ]
     cs_double = c.from_list(exprs2)
+    ls.append(cs_double.to_conjunction(description = "If two nodes share a successor it's null"))
 
     return c.And(
-        cs_single.to_conjunction(description = 'If a node has two identical successors they are both null'),
-        cs_double.to_conjunction(description = "If two nodes share a successor it's null"),
+        *ls,
         description = 'parents_N: No two parents have the same child'
     )
 
@@ -408,8 +415,8 @@ def is_struct_footprint(n, struct, Z, y):
     ;; Z : SET(Int) equals the global footprints for sl.tree
     (And
       ;; Z : SET(Int) contains only sl.tree locations
-      (Map(and, Map(and, Xdata, Xleft), Xright) ==
-      Map(=>, Z, Map(and, Map(and, Xdata, Xleft), Xright)))
+      (Map(=>, Z, Map(and, Map(and, Xdata, Xleft), Xright)) ==
+      K(Int, True))
       ;; All sl.tree footprints equal Z : SET(Int)
       (And
         (Z == Ydata)

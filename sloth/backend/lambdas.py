@@ -27,6 +27,10 @@ class LambdaSet(generic.Set):
         return LambdaSet(z3.K(elem_sort.ref, False), elem_sort)
 
     @staticmethod
+    def get_full(elem_sort):
+        return LambdaSet(z3.K(elem_sort.ref, True), elem_sort)
+
+    @staticmethod
     def to_set(elem_sort, *elems):
         """Return encoding of a set the contains the given elements."""
         res = LambdaSet.get_empty(elem_sort)
@@ -36,6 +40,9 @@ class LambdaSet(generic.Set):
 
     def _empty(self):
         return LambdaSet.get_empty(self.elem_sort)
+
+    def _full(self):
+        return LambdaSet.get_full(self.elem_sort)
 
     def is_empty(self):
         return self.ref == self._empty().ref
@@ -56,7 +63,8 @@ class LambdaSet(generic.Set):
         return z3.Select(self.ref, elem)
 
     def subset_of(self, other):
-        return other.ref == z3.Map(symbols.implies_decl, self.ref, other.ref)
+        return z3.Map(symbols.implies_decl, self.ref, other.ref) == self._full().ref
+        #return other.ref == z3.Map(symbols.implies_decl, self.ref, other.ref)
         #return other.ref == z3.Map(symbols.or_decl, self.ref, other.ref)
 
     def disjoint_from(self, other):

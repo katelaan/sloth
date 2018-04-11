@@ -109,5 +109,11 @@ def graph_from_smt_model(m):
     # Add data evaluation to the stack
     data = {}
     for c, v_ref in m.data.items():
-        data[str(c)] = v_ref.as_long()
+        try:
+            int_val = v_ref.as_long()
+        except:
+            # FP var or reachability func interpretation => Skip
+            pass
+        else:
+            data[str(c)] = int_val
     return Graph(vals, ptrs, stack, data)
