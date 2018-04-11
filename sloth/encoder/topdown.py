@@ -20,42 +20,44 @@ Single pointers and small separating conjunctions of pointers / equalities
 >>> is_sat(sl.list.pointsto(x, y))
 True
 >>> eval_(sl.list.pointsto(x, y))
-Graph({0, 1}, {(0, 'next'): 1}, {'x': 0, 'y': 1})
+Graph({0, 1, 2}, {(1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2})
 >>> eval_(sl.tree.pointsto(t, u, v))
-Graph({0, 1, 2}, {(0, 'left'): 1, (0, 'right'): 2}, {'t': 0, 'u': 1, 'v': 2})
+Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 3})
 >>> eval_(sl.tree.left(t,u))
-Graph({0, 1}, {(0, 'left'): 1}, {'t': 0, 'u': 1})
+Graph({0, 1, 2}, {(1, 'left'): 2}, {'sl.tree.null': 0, 't': 1, 'u': 2})
 >>> eval_(sl.sepcon(sl.tree.left(t,u), sl.tree.right(t,v)))
-Graph({0, 1, 2}, {(0, 'left'): 1, (0, 'right'): 2}, {'t': 0, 'u': 1, 'v': 2})
+Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 3})
 >>> eval_(sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z)))
-Graph({0, 1, 2}, {(0, 'next'): 1, (1, 'next'): 2}, {'x': 0, 'y': 1, 'z': 2})
+Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3})
 >>> eval_(sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null)))
 Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3})
 >>> eval_(sl.list.eq(x,y))
-Graph({0}, {}, {'x': 0, 'y': 0})
+Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1, 'y': 1})
 >>> eval_(sl.sepcon(sl.list.pointsto(x, y), sl.list.eq(x, y)))
-Graph({0}, {(0, 'next'): 0}, {'x': 0, 'y': 0})
+Graph({0, 1}, {(1, 'next'): 1}, {'sl.list.null': 0, 'x': 1, 'y': 1})
 
 Mixing data structures in one expression:
 
 >>> eval_(sl.sepcon(sl.list.pointsto(x,y), sl.tree.pointsto(t,u,v)))
-Graph({0, 1, 2, 3, 4}, {(0, 'left'): 1, (0, 'right'): 2, (3, 'next'): 4}, {'t': 0, 'u': 1, 'v': 2, 'x': 3, 'y': 4})
+Graph({0, 1, 2, 3, 4, 5, 6}, {(2, 'left'): 3, (2, 'right'): 4, (5, 'next'): 6}, {'sl.list.null': 0, 'sl.tree.null': 1, 't': 2, 'u': 3, 'v': 4, 'x': 5, 'y': 6})
 
 Input with Boolean structure
 ----------------------------
 
 >>> eval_(z3.And(sl.list.pointsto(x,y), sl.list.pointsto(z, y)))
-Graph({0, 1}, {(0, 'next'): 1}, {'x': 0, 'y': 1, 'z': 0})
+Graph({0, 1, 2}, {(1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 1})
+>>> eval_(z3.And(sl.list.pointsto(x,y), sl.list.pointsto(x, sl.list.null)))
+Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 0})
 >>> eval_(z3.Or(sl.list.pointsto(x,y), sl.tree.pointsto(t, u, v)))
-Graph({0, 1, 2, 3}, {(0, 'left'): 1, (0, 'right'): 2}, {'t': 0, 'u': 1, 'v': 2, 'x': 3})
+Graph({0, 1, 2, 3, 4, 5}, {(2, 'left'): 3, (2, 'right'): 4}, {'sl.list.null': 0, 'sl.tree.null': 1, 't': 2, 'u': 3, 'v': 4, 'x': 5})
 >>> eval_(z3.Not(sl.list.pointsto(x,y)))
-Graph({0}, {}, {'x': 0})
+Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1})
 >>> eval_(z3.And(sl.list.pointsto(y,x), z3.Not(sl.list.pointsto(x,y))))
-Graph({0, 1}, {(1, 'next'): 0}, {'x': 0, 'y': 1})
+Graph({0, 1, 2}, {(2, 'next'): 1}, {'sl.list.null': 0, 'x': 1, 'y': 2})
 >>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(y, z)), sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(y, x))))
-Graph({0, 1}, {(0, 'next'): 1, (1, 'next'): 0}, {'x': 0, 'y': 1, 'z': 0})
+Graph({0, 1, 2}, {(1, 'next'): 2, (2, 'next'): 1}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 1})
 >>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(y, z)), z3.Not(sl.sepcon(sl.list.pointsto(x,y), sl.list.pointsto(y, x)))))
-Graph({0, 1, 2}, {(0, 'next'): 1, (1, 'next'): 2}, {'x': 0, 'y': 1, 'z': 2})
+Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3})
 
 Simple unsatisfiable benchmarks
 -------------------------------
@@ -78,13 +80,13 @@ actually break even though the code is correct. (Larger values than 43
 and 9000 for the third and fourth benchmark below.)
 
 >>> eval_(sl.sepcon(sl.list.data(x,d), d == 42))
-Graph({0}, {(0, 'data'): 42}, {'x': 0}, {'d': 42})
+Graph({0, 1}, {(1, 'data'): 42}, {'sl.list.null': 0, 'x': 1}, {'d': 42})
 >>> eval_(sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d == 42))
-Graph({0, 1}, {(0, 'data'): 42, (0, 'next'): 1}, {'x': 0, 'y': 1}, {'d': 42})
+Graph({0, 1, 2}, {(1, 'data'): 42, (1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2}, {'d': 42})
 >>> eval_(z3.And(sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d > 42), sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d < 9000)))
-Graph({0, 1}, {(0, 'data'): 43, (0, 'next'): 1}, {'x': 0, 'y': 1}, {'d': 43})
+Graph({0, 1, 2}, {(1, 'data'): 43, (1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2}, {'d': 43})
 >>> eval_(z3.And(sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d > 42), z3.Not(sl.sepcon(sl.list.data(x,d), sl.list.next(x,y), d < 9000))))
-Graph({0, 1}, {(0, 'data'): 9000, (0, 'next'): 1}, {'x': 0, 'y': 1}, {'d': 9000})
+Graph({0, 1, 2}, {(1, 'data'): 9000, (1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2}, {'d': 9000})
 
 """
 

@@ -148,8 +148,6 @@ def is_stop_node(struct, x, *stops):
 
     """
     cs = c.ConstraintList()
-    #for s in structs:
-    #    cs.append_expr(x == s.null)
     cs.append_expr(x == struct.null)
     for stop in stops:
         cs.append_expr(x == stop)
@@ -175,13 +173,15 @@ def S(struct, x, y):
     desc = '{} is a {}-successor of {}'.format(y, flds, x)
     return cs.to_disjunction(description = desc)
 
-def R(n, k, struct, Z):
+def R(n, k, struct, Z, *stops):
     """Define r_k as the k-step reachability relation within the footprint z.
 
     >>> Z = sl.tree.struct.fp_sort['Z']
     >>> print(R(3, 1, sl.tree.struct, Z)) # doctest: +ELLIPSIS
     ;; Interpret r1 as 1-step reachability
     (And
+      ;; 1-step reachability from x0 to x0
+      ...
       ;; 1-step reachability from x0 to x1
       (Iff
         (r1(x0, x1))
@@ -201,15 +201,17 @@ def R(n, k, struct, Z):
         )
       )
       ...
-      ;; 1-step reachability from x2 to x1
+      ;; 1-step reachability from x2 to x2
       (Iff
-        (r1(x2, x1))
+        (r1(x2, x2))
         (...)
       )
     )
     >>> print(R(3, 3, sl.tree.struct, Z)) # doctest: +ELLIPSIS
     ;; Interpret r3 as 3-step reachability
     (And
+      ;; 3-step reachability from x0 to x0
+      ...
       ;; 3-step reachability from x0 to x1
       (Iff
         (r3(x0, x1))
@@ -219,13 +221,13 @@ def R(n, k, struct, Z):
               And(r2(x0, x2), r1(x2, x1)))))
       )
       ...
-      ;; 3-step reachability from x2 to x1
+      ;; 3-step reachability from x2 to x2
       (Iff
-        (r3(x2, x1))
-        (Or(r2(x2, x1),
-           Or(And(r2(x2, x0), r1(x0, x1)),
-              And(r2(x2, x1), r1(x1, x1)),
-              And(r2(x2, x2), r1(x2, x1)))))
+        (r3(x2, x2))
+        (Or(r2(x2, x2),
+           Or(And(r2(x2, x0), r1(x0, x2)),
+              And(r2(x2, x1), r1(x1, x2)),
+              And(r2(x2, x2), r1(x2, x2)))))
       )
     )
 
@@ -236,11 +238,12 @@ def R(n, k, struct, Z):
     if k == 1:
         exprs = [c.Iff(r(sort, 1)(x_i,x_j),
                        c.And(Z.contains(x_i),
-                             c.Not(is_stop_node(struct, x_j)),
+                             c.Not(is_stop_node(struct, x_j, *stops)),
                              S(struct, x_i, x_j)),
                        description = '1-step reachability from {} to {}'.format(x_i, x_j))
                  for x_i, x_j in itertools.product(xs(sort, n), repeat = 2)
-                 if non_identical(x_i, x_j)
+                 # Note: To be able to check acyclicity, we have to compute reachability even for x_i=x_j
+                 #if non_identical(x_i, x_j)
         ]
     else:
         def step(x_i, x_j):
@@ -253,12 +256,14 @@ def R(n, k, struct, Z):
                              step(x_i, x_j)),
                        description = '{}-step reachability from {} to {}'.format(k, x_i, x_j))
                  for x_i, x_j in itertools.product(xs(sort, n), repeat = 2)
-                 if non_identical(x_i, x_j)]
+                 # Note: To be able to check acyclicity, we have to compute reachability even for x_i=x_j
+                 #if non_identical(x_i, x_j)
+        ]
     cs = c.from_list(exprs)
     desc = 'Interpret {} as {}-step reachability'.format(r(sort, k), k)
     return cs.to_conjunction(description = desc)
 
-def reach(n, struct, Z):
+def reach(n, struct, Z, *stops):
     """
     >>> print(reach(3, sl.tree.struct, Z))
     ;; Define reachability predicates
@@ -272,7 +277,7 @@ def reach(n, struct, Z):
     )
 
     """
-    exprs = [R(n, k+1, struct, Z) for k in range(n)]
+    exprs = [R(n, k+1, struct, Z, *stops) for k in range(n)]
     cs = c.from_list(exprs)
     return cs.to_conjunction(description = 'Define reachability predicates')
 
@@ -299,7 +304,7 @@ def defn(n, struct, Z, root, *stops):
                    description = '{} is a subset of {{{},...,{}}}'.format(Z, x(sort,0), x(sort,n-1)))
     # If the root is a stop node, Z is empty
     cs.append_constraint(
-        c.Implies(is_stop_node(struct, root), Z.is_empty(),
+        c.Implies(is_stop_node(struct, root, *stops), Z.is_empty(),
                   description = 'If the root is a stop node, {} is empty'.format(Z))
     )
     # If the root isn't a stop node, all nodes in Z are reachable from the root
@@ -455,6 +460,24 @@ def is_struct_footprint(n, struct, Z, y):
 
     combined = c.from_list(ls)
     return combined.to_conjunction('{} equals the global footprints for {}'.format(Z, struct.name))
+
+def root_alloced_or_stop(Z, root, stop):
+    expr = z3.Or(
+        Z.contains(root),
+        root == stop
+    )
+    return c.as_constraint(expr, description = 'The root {} is allocated or equal to {}'.format(root, stop))
+
+def all_leaves_are_stop_nodes(n, Z, struct, *stops):
+    sort = struct.sort
+    fld_fns = [(fld, struct.heap_fn(fld)) for fld in struct.structural_fields]
+    exprs = [c.Implies(
+        z3.And(Z.contains(x_i), z3.Not(Z.contains(fld_fn(x_i)))),
+        is_stop_node(struct, x_i, *stops),
+        description = "If the {}-successor of {} isn't alloced it's a stop node".format(fld, x_i))
+             for x_i in xs(sort, n)
+             for fld, fld_fn in fld_fns]
+    return c.from_list(exprs).to_conjunction('All leaves are stop nodes')
 
 def stops_leaf_parent(n, x_p, struct, fld, stop):
     """`x_p` is a `fld`-ancestor of `stop`.
@@ -655,14 +678,21 @@ def struct_encoding(n, Y, struct, Z, preds, root, *stops):
     assert preds is None or isinstance(preds, DataPreds)
     assert isinstance(Y, FPVector)
     cs_a = [is_struct_footprint(n, struct, Z, Y),
-            is_acyclic(n, struct, root, Z)
+            is_acyclic(n, struct, root, Z),
+            all_leaves_are_stop_nodes(n, Z, struct, *stops)
     ]
     if len(stops) > 1:
         cs_a.append(stop_nodes_are_ordered_leaves(n, struct, Z, root, *stops))
+    else:
+        try:
+            stop = stops[0]
+        except:
+            stop = struct.null
+        cs_a.append(root_alloced_or_stop(Z, root, stop))
     if preds is not None:
         cs_a.append(data_preds_hold(n, struct, Z, preds))
     A = c.from_list(cs_a).to_conjunction('Structural encoding of list({}, {}) of size {} with data constraints {}'.format(root, stops, n, preds))
-    cs_b = [reach(n, struct, Z),
+    cs_b = [reach(n, struct, Z, *stops),
             defn(n, struct, Z, root, *stops)
     ]
     B = c.from_list(cs_b).to_conjunction('Footprint encoding of list({}, {}) of size {}'.format(root, stops, n, preds))

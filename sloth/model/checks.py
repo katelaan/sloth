@@ -8,11 +8,13 @@
 
 """
 
+import itertools
+
 from .. import z3api
 from ..encoder import topdown
 from ..utils import utils
 from . import model
-from .graph import Graph, canonicalize
+from .graph import Graph, canonicalize, DATA_FLD
 
 def show_evaluation_steps(sl, sl_expr, export_file = None):
     e = topdown.encode_sl_expr(sl, sl_expr)
@@ -91,6 +93,9 @@ def graph_from_smt_model(m):
     stack = {}
     for s, sm in m.struct_models.items():
         vals.update(map(lambda l: l.as_long(), sm.locs))
+        null_val = sm.null()
+        vals.add(null_val)
+        stack[str(s.null)] = null_val
         for c in sm.loc_consts():
             v = m.val_of(c).as_long()
             #print('{} : {}'.format(c, v))
@@ -106,6 +111,7 @@ def graph_from_smt_model(m):
                         else:
                             #print('{}: {} not alloced'.format(loc, fld))
                             pass
+
     # Add data evaluation to the stack
     data = {}
     for c, v_ref in m.data.items():
@@ -116,4 +122,12 @@ def graph_from_smt_model(m):
             pass
         else:
             data[str(c)] = int_val
-    return Graph(vals, ptrs, stack, data)
+
+    # Filter out isolated nodes
+    non_isolated = set(itertools.chain(stack.values(),
+                               (src for src,_ in ptrs),
+                               (trg for (_,lbl), trg in ptrs.items() if lbl != DATA_FLD)
+                               ))
+    assert non_isolated.issubset(vals), \
+        'Trying to restrict {} to {}, which is not a subset'.format(Graph(vals, ptrs, stack, data), non_isolated)
+    return Graph(non_isolated, ptrs, stack, data)
