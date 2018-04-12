@@ -498,10 +498,10 @@ def all_leaves_are_stop_nodes(n, Z, struct, *stops):
              for fld, fld_fn in fld_fns]
     return c.from_list(exprs).to_conjunction(description = 'All leaves are stop nodes')
 
-def stops_leaf_parent(n, x_p, struct, fld, stop):
+def stops_leaf_parent(n, x_p, struct, Z, fld, stop):
     """`x_p` is a `fld`-ancestor of `stop`.
 
-    >>> print(stops_leaf_parent(3, sort['x_p'], sl.tree.struct, 'right', sort['x_stop']))
+    >>> print(stops_leaf_parent(3, sort['x_p'], sl.tree.struct, Z, 'right', sort['x_stop']))
     ;; x_p is a right-ancestor of the stop node x_stop
     (Or
       (sl.tree.right(x_p) == x_stop)
@@ -529,8 +529,8 @@ def stops_leaf_parent(n, x_p, struct, fld, stop):
         c.And(
             z3.Or(x_c == f(x_p), r(sort, n)(f(x_p), x_c)),
             S(struct, x_c, stop),
+            #Z.contains(x_c),
             description = '{} is the descendant that is the parent of {}'.format(x_c, stop)
-
         )
         for x_c in xs(sort, n)
     ]
@@ -551,7 +551,7 @@ occur in the same order in the tree induced by `Z` as in `stops`.
     >>> print(stop_nodes_are_ordered_leaves(3, sl.tree.struct, Z, sort['root'], sort['s1'], sort['s2'])) # doctest: +ELLIPSIS
     ;; All adjacent pairs of stop nodes in (s1, s2) are ordered in the induced tree of Z : SET(Int)
     (And
-      ;; Stop nodes s1 and s2 have a LCA in Z : SET(Int)
+      ;; Stop nodes s1 and s2 have an LCA in Z : SET(Int)
       (Or
         ;; x0 is the LCA of s1 and s2
         (And
@@ -571,16 +571,31 @@ occur in the same order in the tree induced by `Z` as in `stops`.
                 )
               )
               ;; x1 is the descendant that is the parent of s1
-              ...
+              (And
+                (Or(x1 == sl.tree.left(x0), r3(sl.tree.left(x0), x1)))
+                ;; s1 is a ['left', 'right']-successor of x1
+                (Or
+                  (And(Xleft[x1], sl.tree.left(x1) == s1))
+                  (And(Xright[x1], sl.tree.right(x1) == s1))
+                )
+              )
               ;; x2 is the descendant that is the parent of s1
-              ...
+              (And
+                (Or(x2 == sl.tree.left(x0), r3(sl.tree.left(x0), x2)))
+                ;; s1 is a ['left', 'right']-successor of x2
+                (Or
+                  (And(Xleft[x2], sl.tree.left(x2) == s1))
+                  (And(Xright[x2], sl.tree.right(x2) == s1))
+                )
+              )
             )
           )
-          ;; x0 is a right-ancestor of the stop node s2
-          ...
-        )
-        ;; x1 is the LCA of s1 and s2
-        ...
+         ...
+      )
+      ;; Stop nodes are pairwise different
+      (And
+        (Not(s1 == s2))
+      )
     )
 
     """
@@ -593,19 +608,24 @@ occur in the same order in the tree induced by `Z` as in `stops`.
         def ordered_pair(s, t):
             exprs = [
                 c.And(Z.contains(x_p),
-                      stops_leaf_parent(n, x_p, struct, 'left', s),
-                      stops_leaf_parent(n, x_p, struct, 'right', t),
+                      stops_leaf_parent(n, x_p, struct, Z, 'left', s),
+                      stops_leaf_parent(n, x_p, struct, Z, 'right', t),
                       description = '{} is the LCA of {} and {}'.format(x_p, s, t))
                 for x_p in xs(sort, n)
             ]
             return c.from_list(exprs).to_disjunction(
-                description = 'Stop nodes {} and {} have a LCA in {}'.format(s, t, Z)
+                description = 'Stop nodes {} and {} have an LCA in {}'.format(s, t, Z)
             )
 
-        cs_list = [
+        ordered = [
             ordered_pair(stops[k], stops[k+1])
             for k in range(len(stops)-1)
         ]
+        all_different = c.And(*(
+            z3.Not(s == t)
+            for s, t in itertools.combinations(stops, 2)
+        ), description = 'Stop nodes are pairwise different')
+        cs_list = ordered + [all_different]
 
         return c.from_list(cs_list).to_conjunction(
             description = 'All adjacent pairs of stop nodes in {} are ordered in the induced tree of {}'.format(stops, Z)

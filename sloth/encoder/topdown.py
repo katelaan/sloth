@@ -177,9 +177,17 @@ Tree calls
 >>> eval_(sl.tree(t))
 Graph({0}, {}, {'sl.tree.null': 0, 't': 0})
 >>> eval_(sl.tree.seg2(t, u, v), override_bound = 4)
-Graph({0, 1}, {(1, 'left'): 0, (1, 'right'): 0}, {'sl.tree.null': 0, 't': 1, 'u': 0, 'v': 0})
+Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 3})
 >>> eval_(sl.sepcon(sl.tree.seg2(t, u, v), sl.tree.neq(u, sl.tree.null), sl.tree.neq(v, sl.tree.null)), override_bound = 1)
-Graph({0, 1, 2}, {(1, 'left'): 2, (1, 'right'): 2}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 2})
+Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 3})
+
+Unsat calls
+-----------
+
+Equal stop nodes:
+
+>>> is_sat(sl.sepcon(sl.tree.seg2(t, u, v), sl.tree.neq(u, sl.tree.null), sl.tree.neq(v, sl.tree.null), sl.tree.eq(u, v)))
+False
 
 """
 
