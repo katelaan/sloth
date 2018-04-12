@@ -472,6 +472,10 @@ def root_alloced_or_stop(Z, root, stop):
     )
     return c.as_constraint(expr, description = 'The root {} is allocated or equal to {}'.format(root, stop))
 
+def root_alloced(Z, root):
+    expr = Z.contains(root)
+    return c.as_constraint(expr, description = 'The root {} must be allocated (because there is more than one stop node)'.format(root))
+
 def stop_node_occurs(n, struct, Z, stop):
     return c.Or(
         Z.is_empty(),
@@ -698,6 +702,8 @@ def struct_encoding(n, Y, struct, Z, preds, root, *stops):
     ]
     if len(stops) > 1:
         cs_a.append(stop_nodes_are_ordered_leaves(n, struct, Z, root, *stops))
+        # For there to be more than one stop node, the root *must* be allocated!
+        cs_a.append(root_alloced(Z, root))
     else:
         try:
             stop = stops[0]
