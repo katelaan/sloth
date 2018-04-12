@@ -463,7 +463,7 @@ def is_struct_footprint(n, struct, Z, y):
         ls.append(other_empty.to_conjunction(description = 'All other footprints are empty'))
 
     combined = c.from_list(ls)
-    return combined.to_conjunction('{} equals the global footprints for {}'.format(Z, struct.name))
+    return combined.to_conjunction(description = '{} equals the global footprints for {}'.format(Z, struct.name))
 
 def root_alloced_or_stop(Z, root, stop):
     expr = z3.Or(
@@ -492,7 +492,7 @@ def all_leaves_are_stop_nodes(n, Z, struct, *stops):
         description = "If the {}-successor of {} isn't alloced it's a stop node".format(fld, x_i))
              for x_i in xs(sort, n)
              for fld, fld_fn in fld_fns]
-    return c.from_list(exprs).to_conjunction('All leaves are stop nodes')
+    return c.from_list(exprs).to_conjunction(description = 'All leaves are stop nodes')
 
 def stops_leaf_parent(n, x_p, struct, fld, stop):
     """`x_p` is a `fld`-ancestor of `stop`.
@@ -708,11 +708,11 @@ def struct_encoding(n, Y, struct, Z, preds, root, *stops):
         cs_a.append(root_alloced_or_stop(Z, root, stop))
     if preds is not None:
         cs_a.append(data_preds_hold(n, struct, Z, preds))
-    A = c.from_list(cs_a).to_conjunction('Structural encoding of list({}, {}) of size {} with data constraints {}'.format(root, stops, n, preds))
+    A = c.from_list(cs_a).to_conjunction(description = 'Structural encoding of list({}, {}) of size {} with data constraints {}'.format(root, stops, n, preds))
     cs_b = [reach(n, struct, Z, *stops),
             defn(n, struct, Z, root, *stops)
     ]
-    B = c.from_list(cs_b).to_conjunction('Footprint encoding of list({}, {}) of size {}'.format(root, stops, n, preds))
+    B = c.from_list(cs_b).to_conjunction(description = 'Footprint encoding of list({}, {}) of size {}'.format(root, stops, n, preds))
     fresh_decls = set(itertools.chain([Z],
                                       xs(struct.sort, n),
                                       rs(struct.sort, n)))

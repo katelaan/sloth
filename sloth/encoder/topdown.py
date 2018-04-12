@@ -171,6 +171,16 @@ True
 >>> g.data['d'] > 10 * g.data['e']
 True
 
+Tree calls
+----------
+
+>>> eval_(sl.tree(t))
+Graph({0}, {}, {'sl.tree.null': 0, 't': 0})
+>>> eval_(sl.tree.seg2(t, u, v), override_bound = 4)
+Graph({0, 1}, {(1, 'left'): 0, (1, 'right'): 0}, {'sl.tree.null': 0, 't': 1, 'u': 0, 'v': 0})
+>>> eval_(sl.sepcon(sl.tree.seg2(t, u, v), sl.tree.neq(u, sl.tree.null), sl.tree.neq(v, sl.tree.null)), override_bound = 1)
+Graph({0, 1, 2}, {(1, 'left'): 2, (1, 'right'): 2}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 2})
+
 """
 
 import functools, itertools
@@ -178,6 +188,7 @@ import functools, itertools
 from z3 import And, Not, Or
 
 from .. import consts as consts_mod
+from .. import serialization
 from ..utils import utils, logger
 from ..z3api import z3utils
 from . import constraints as c
@@ -376,7 +387,7 @@ def encode_boolean(config, X, ast):
         connection = c.And(*all_equal(Y, X),
                            description = 'Connecting spatial formula to global constraint')
         A = c.And(A1, connection,
-                  description = 'Placing {} in the global context'.format(str(ast.to_sl_expr()).replace('\n','')))
+                  description = 'Placing {} in the global context'.format(serialization.expr_to_smt2_string(ast.to_sl_expr(), multi_line = False)))
         Z = Z1.union(Y.all_fps())
         return SplitEnc(A, B, Z)
 

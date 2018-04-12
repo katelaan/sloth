@@ -51,6 +51,12 @@ def from_list(ls):
 
 class SmtConstraint:
 
+    def __init__(self, sl_expr, description):
+        assert sl_expr is None or isinstance(sl_expr, z3.ExprRef)
+        assert description is None or isinstance(description, str)
+        self.sl_expr = sl_expr
+        self.description = description
+
     def __str__(self):
         return pretty_print(self)
 
@@ -94,8 +100,7 @@ def pretty_print(constraint, indent = '  ',
     lines = []
 
     if constraint.sl_expr is not None:
-        # TODO: Remove excess whitespace (introduced by the indent)
-        lines.append(';; {}'.format(str(constraint.sl_expr).replace('\n', '')))
+        lines.append(';; {}'.format(serialization.expr_to_smt2_string(constraint.sl_expr, multi_line = False)))
     if constraint.description is not None:
         lines.append(';; ' + constraint.description)
 
@@ -120,8 +125,7 @@ class BaseConstraint(SmtConstraint):
     def __init__(self, constraint, sl_expr = None, description = None):
         assert isinstance(constraint, z3.ExprRef)
         self.constraint = constraint
-        self.sl_expr = sl_expr
-        self.description = description
+        super().__init__(sl_expr, description)
 
     def __iter__(self):
         return iter()
@@ -139,8 +143,7 @@ class BaseConstraint(SmtConstraint):
 class VarArgOp(SmtConstraint):
     def __init__(self, *constraints, sl_expr = None, description = None):
         self.constraints = [as_constraint(c) for c in constraints]
-        self.sl_expr = sl_expr
-        self.description = description
+        super().__init__(sl_expr, description)
 
     def __repr__(self):
         cls_name = type(self).__name__
@@ -162,8 +165,7 @@ class Or(VarArgOp):
 class Not(SmtConstraint):
     def __init__(self, constraint, sl_expr = None, description = None):
         self.constraint = as_constraint(constraint)
-        self.sl_expr = sl_expr
-        self.description = description
+        super().__init__(sl_expr, description)
 
     def __iter__(self):
         yield self.constraint
@@ -178,8 +180,7 @@ class BinOp(SmtConstraint):
     def __init__(self, left, right, sl_expr = None, description = None):
         self.left = as_constraint(left)
         self.right = as_constraint(right)
-        self.sl_expr = sl_expr
-        self.description = description
+        super().__init__(sl_expr, description)
 
     def __iter__(self):
         yield self.left

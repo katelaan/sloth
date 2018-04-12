@@ -55,7 +55,8 @@ def translate_head_func_decl(expr):
     else: return s.lower()
 
 def expr_to_smt2_string(encoding, multi_line = True, indent = '  '):
-    assert(isinstance(encoding, z3.ExprRef))
+    assert isinstance(encoding, z3.ExprRef), \
+        'Received {} of type {} for ExprRef serialization'.format(encoding, type(encoding).__name__)
 
     if not multi_line:
         indent = ''
