@@ -15,6 +15,7 @@ bookkeeping.
 from z3 import is_const, And, Or, Not, ExprRef
 
 from ..backend import symbols
+from ..z3api import z3utils
 from .utils import EncoderState
 from . import astutils
 
@@ -171,18 +172,19 @@ class PredCall(SlAst):
         for n in self.stop_nodes:
             yield n
 
+
+    @staticmethod
+    def _is_template_var(x):
+        sx = str(x)
+        return sx == 'sl.alpha' or sx == 'sl.beta'
+
     def data_consts(self):
         if self.pred is not None:
-            queue = [self.pred]
-            while queue:
-                hd, queue = queue[0], queue[1:]
-                if hd.is_data():
-                    for d in hd.data_consts():
-                        if not (str(d) == 'sl.alpha' or str(d) == 'sl.beta'):
-                            yield d
-                else:
-                    for c in hd:
-                        queue.append(c)
+            for d in z3utils.collect_consts(self.pred.atom):
+                #print('Considering yielding {}'.format(d))
+                if not PredCall._is_template_var(d):
+                    #print('Will yield const {}'.format(d))
+                    yield d
 
     def __repr__(self):
         args = [self.struct.name, self.fld, self.pred, self.root] + self.stop_nodes

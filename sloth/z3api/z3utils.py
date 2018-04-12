@@ -33,10 +33,10 @@ def model():
     return _solver.model()
 
 def sat_solver_state(solver):
-    return repr(solver.check()) == "sat"
+    return repr(solver.check()) == 'sat'
 
 def unsat_solver_state(solver):
-    return repr(solver.check()) == "unsat"
+    return repr(solver.check()) == 'unsat'
 
 def run_z3(encoding):
     """Run z3 on the given SMT assertion.
@@ -65,12 +65,12 @@ def decl_to_string(decl):
     assert(isinstance(decl, z3.AstRef))
     if isinstance(decl, z3.FuncDeclRef):
         dom = [str(decl.domain(i)) for i in range(decl.arity())]
-        dom_str = " * ".join(dom)
+        dom_str = ' * '.join(dom)
         rng = decl.range()
-        return "{} : {} -> {}".format(decl, dom_str, rng)
+        return '{} : {} -> {}'.format(decl, dom_str, rng)
     else:
         assert(z3.is_const(decl))
-        return "{} : {} (const)".format(decl, decl.sort())
+        return '{} : {} (const)'.format(decl, decl.sort())
 
 def is_array_sort(sort):
     """Returns true iff the given sort reference is an array sort reference"""
@@ -101,13 +101,13 @@ def partial_expr_fold(smt_expr, is_leaf, leaf, inner):
     assert(isinstance(smt_expr, z3.ExprRef))
     if is_leaf(smt_expr):
         res = leaf(smt_expr)
-        #logger.info("Leaf result for {}: {}".format(smt_expr, res))
+        #logger.info('Leaf result for {}: {}'.format(smt_expr, res))
         return res
     else:
         folding = [partial_expr_fold(c, is_leaf, leaf, inner)
                    for c in smt_expr.children()]
         res = inner(smt_expr, folding)
-        #logger.info("Folding result from {} into inner result for {}: {}".format(folding, smt_expr, res))
+        #logger.info('Folding result from {} into inner result for {}: {}'.format(folding, smt_expr, res))
         return res
 
 def expr_fold_stateful(smt_expr, leaf, inner, update, state):
@@ -118,13 +118,13 @@ def expr_fold_stateful(smt_expr, leaf, inner, update, state):
         folding = [expr_fold_stateful(c, leaf, inner, update, update(state)) for c in smt_expr.children()]
         return inner(smt_expr, folding, state)
 
-keywords = ["True", "False"]
+keywords = ['True', 'False']
 
 def collect_consts(smt_expr):
     """Returns list of all constants (as ExprRef instances) that appear in the given expression"""
     assert(isinstance(smt_expr, z3.ExprRef))
     non_unique_res = expr_fold(smt_expr,
-                     lambda t : [t],
+                     lambda t : [t] if not z3.is_int_value(t) else [],
                         lambda _, cs : utils.flatten(cs))
     for c in non_unique_res:
         assert(z3.is_const(c))
@@ -152,7 +152,7 @@ def collect_fun_decls(smt_expr):
     res = set(expr_fold(smt_expr,
                      lambda t : [],
                      lambda t, cs : utils.flatten(cs) + [t.decl()]))
-    return res #[c for c in res if str(c) not in keywords]
+    return res
 
 def collect_outermost_theory_decls(smt_expr):
     """Return a set of all non-const theory symbols in the expression that are not themselves arguments to theory symbols"""
@@ -178,7 +178,7 @@ def by_complexity(c):
     ordering the sorts lexiographically as well,
     returning non-array sorts before array sorts.
     """
-    return (0 if "sl." in str(c) else 1,
+    return (0 if 'sl.' in str(c) else 1,
         1 if is_array_sort(c.decl().range()) else 0,
         str(c.decl()),
         str(c))
