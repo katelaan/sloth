@@ -94,6 +94,11 @@ Graph({0, 1, 2}, {(1, 'data'): 9000, (1, 'next'): 2}, {'sl.list.null': 0, 'x': 1
 Benchmarks with list calls
 --------------------------
 
+Note that in many of the remaining examples, data values are
+underconstrained. For this reason, we don't require exact data values
+in the graph output, but we check with separate API calls that the
+data interpretation is consistent with the constraints that are there.
+
 >>> eval_(sl.list(x))
 Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1})
 >>> eval_(sl.list.seg(x, y))
@@ -106,35 +111,65 @@ Graph({0, 1, 2}, {(1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2})
 Graph({0}, {}, {'sl.list.null': 0, 'x': 0})
 >>> eval_(sl.sepcon(sl.list.seg(x, sl.list.null), sl.list.neq(x, sl.list.null)))
 Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1})
->>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d)), sl.list(x)))
-Graph({0, 1}, {(1, 'data'): 2, (1, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 0}, {'d': 2})
+>>> g = eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d)), sl.list(x))); g
+Graph({0, 1}, {(1, 'data'): ..., (1, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 0}, {'d': ...})
+>>> g.are_equal('x', 'data', 'd')
+True
 
 When using the ordinary list predicate, longer lists end in null as well:
 
->>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e)), sl.list(x)))
-Graph({0, 1, 2}, {(1, 'data'): 2, (1, 'next'): 2, (2, 'data'): 4, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 0}, {'d': 2, 'e': 4})
+>>> g = eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e)), sl.list(x))); g
+Graph({0, 1, 2}, {(1, 'data'): ..., (1, 'next'): 2, (2, 'data'): ..., (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 0}, {'d': ..., 'e': ...})
+>>> g.are_equal('x', 'data', 'd')
+True
+>>> g.are_equal('y', 'data', 'e')
+True
 
 With the segment predicate, the stop node is deterministically interpreted as distinct from null (which is fine but not required by our semantics)...
 
 >>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e)), sl.list.seg(x, z)))
-Graph({0, 1, 2, 3}, {(1, 'data'): 1, (1, 'next'): 2, (2, 'data'): 3, (2, 'next'): 3}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3}, {'d': 1, 'e': 3})
+Graph({0, 1, 2, 3}, {(1, 'data'): ..., (1, 'next'): 2, (2, 'data'): ..., (2, 'next'): 3}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3}, {'d': ..., 'e': ...})
 
 ...so we can force it to be null:
 
->>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e), sl.list.eq(z, sl.list.null)), sl.list.seg(x, z)))
-Graph({0, 1, 2}, {(1, 'data'): 2, (1, 'next'): 2, (2, 'data'): 4, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 0}, {'d': 2, 'e': 4})
+>>> g = eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e), sl.list.eq(z, sl.list.null)), sl.list.seg(x, z))); g
+Graph({0, 1, 2}, {(1, 'data'): ..., (1, 'next'): 2, (2, 'data'): ..., (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 0}, {'d': ..., 'e': ...})
+>>> g.are_equal('x', 'data', 'd') and g.are_equal('y', 'data', 'e')
+True
 
->>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e), sl.list.eq(sl.list.null,z)), sl.list.seg(x, z)))
-Graph({0, 1, 2}, {(1, 'data'): 2, (1, 'next'): 2, (2, 'data'): 4, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 0}, {'d': 2, 'e': 4})
+>>> g = eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e), sl.list.eq(sl.list.null,z)), sl.list.seg(x, z))); g
+Graph({0, 1, 2}, {(1, 'data'): ..., (1, 'next'): 2, (2, 'data'): ..., (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 0}, {'d': ..., 'e': ...})
+>>> g.are_equal('x', 'data', 'd') and g.are_equal('y', 'data', 'e')
+True
 
->>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,sl.list.null), sl.list.data(y,e)), sl.list(x)))
-Graph({0, 1, 2}, {(1, 'data'): 2, (1, 'next'): 2, (2, 'data'): 4, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2}, {'d': 2, 'e': 4})
+>>> g = eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,sl.list.null), sl.list.data(y,e)), sl.list(x))); g
+Graph({0, 1, 2}, {(1, 'data'): ..., (1, 'next'): 2, (2, 'data'): ..., (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2}, {'d': ..., 'e': ...})
+>>> g.are_equal('x', 'data', 'd') and g.are_equal('y', 'data', 'e')
+True
 
 List calls with data
 --------------------
 
+Unary:
+
 >>> eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,sl.list.null), sl.list.data(y,e)), sl.list.dpred.unary(sl.alpha == 123, x)))
 Graph({0, 1, 2}, {(1, 'data'): 123, (1, 'next'): 2, (2, 'data'): 123, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2}, {'d': 123, 'e': 123})
+
+Binary (but allocation of only one list node is permissible, so the binary predicate need not hold for the pair (d,e))
+
+>>> g = eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,sl.list.null), sl.list.data(y,e)), sl.list.dpred.next(sl.alpha > 10*sl.beta, x)), override_bound = 4); g
+Graph({0, 1, 2}, {(1, 'data'): ..., (1, 'next'): 2, (2, 'data'): ..., (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2}, {'d': ..., 'e': ...})
+>>> g.are_equal('x', 'data', 'd') and g.are_equal('y', 'data', 'e')
+True
+
+Binary (both x and y are allocated within the list, so the binary predicate must hold for the pair (d,e))
+
+>>> g = eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e), sl.list.pointsto(z,sl.list.null), sl.list.data(z,f)), sl.list.dpred.next(sl.alpha > 10*sl.beta, x)), override_bound = 4); g
+Graph({0, 1, 2, 3}, {(1, 'data'): ..., (1, 'next'): 2, (2, 'data'): ..., (2, 'next'): 3, (3, 'data'): ..., (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3}, {'d': ..., 'e': ..., 'f': ...})
+>>> all([g.are_equal('x', 'data', 'd'), g.are_equal('y', 'data', 'e'), g.are_equal('z', 'data', 'f')])
+True
+>>> g.data['d'] > 10 * g.data['e']
+True
 
 """
 
@@ -177,17 +212,17 @@ def structs_in_expr(sl, sl_expr):
 
 # TODO: Have a separate API module for the encoder package
 
-def model_of_sl_expr(sl, sl_expr):
+def model_of_sl_expr(sl, sl_expr, override_bound = None):
     from .. import z3api
-    e = encode_sl_expr(sl, sl_expr)
+    e = encode_sl_expr(sl, sl_expr, override_bound)
     if z3api.is_sat(e.to_z3_expr()):
         return e.label_model(z3api.model())
     else:
         return None
 
-def sl_expr_is_sat(sl, sl_expr):
+def sl_expr_is_sat(sl, sl_expr, override_bound = None):
     from .. import z3api
-    e = encode_sl_expr(sl, sl_expr)
+    e = encode_sl_expr(sl, sl_expr, override_bound)
     return z3api.is_sat(e.to_z3_expr())
 
 def encode_sl_expr(sl, sl_expr, override_bound = None):

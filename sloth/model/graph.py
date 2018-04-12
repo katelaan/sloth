@@ -185,6 +185,10 @@ class Graph:
         s[x] = v
         return Graph(self.val, self.ptr, s)
 
+    def are_equal(self, src_var, fld, data_var):
+        return self.ptr[(self.s[src_var], fld)] == self.data[data_var]
+
+
     def is_garbagefree(self):
         """Returns true iff all members of `val` are reachable from a
 variable.

@@ -135,6 +135,9 @@ arguments into nested binary applications.
     """
     # TODO: Logarithmic instead of linear depth for more readable pretty printing
     def rec_rewrite(decl, remainder):
+        if len(remainder) == 1:
+            # Don't crash on redundant decl-applications like z3.And(sl.list("a"))
+            return remainder[0]
         if len(remainder) == 2:
             return decl(remainder[0], remainder[1])
         else:

@@ -60,14 +60,14 @@ def isomorphic(m1, m2):
     g2 = _as_graph(m2)
     return canonicalize(g1) == canonicalize(g2)
 
-def evaluate_to_graph(sl, sl_expr, ignore_null = False):
+def evaluate_to_graph(sl, sl_expr, ignore_null = False, override_bound = None):
     """
     >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
     >>> evaluate_to_graph(sl, sl_expr)
     Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3})
 
     """
-    m = topdown.model_of_sl_expr(sl, sl_expr)
+    m = topdown.model_of_sl_expr(sl, sl_expr, override_bound)
     return canonical_graph(m, ignore_null)
 
 def canonical_graph(m, ignore_null = False):
