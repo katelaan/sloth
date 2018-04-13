@@ -53,7 +53,7 @@ class SlApi:
     >>> expr = sl.sepcon(sl.list.pointsto("a", "b"), sl.list.pointsto("a", "c"))
     >>> expr
     sl.sepcon(sl.list.pointsto(a, b), sl.list.pointsto(a, c))
-    >>> api.is_sat(expr, max_depth = 0)
+    >>> api.is_sat(expr, override_bound = 2)
     False
     >>> z3.And(sl.tree("a"), sl.list("b"))
     And(sl.tree(a), sl.list(b))

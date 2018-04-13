@@ -4,6 +4,10 @@
 
   from sloth.api import *
 
+TODO: Remove the quantified backend from the public API? The
+polynomial encoding (which is used by the API now) is only available
+for the lambda backend.
+
 By default, the lambda backend is active. You can switch back and forth at any time:
 
 >>> backend
@@ -29,8 +33,7 @@ model generation, etc.
 >>> is_sat(sl.list("a"))
 True
 >>> encoding = encode(sl.list.pointsto("a","b"))
-Defaulting to depth 0
->>> encoding.full() # doctest: +ELLIPSIS
+>>> encoding.to_z3_expr() # doctest: +ELLIPSIS
 And(...)
 >>> is_sat_encoding(encoding)
 True
@@ -45,8 +48,8 @@ In addition there are various methods to help you find and interact with benchma
 
 >>> all_benchmarks() # doctest: +ELLIPSIS
 ['../benchmarks/...]
->>> find_benchmarks("list", "seg")
-['../benchmarks/list-boolean-closure/list-not-list-segs.smt2', '../benchmarks/list-boolean-closure/unsat-list-segs-not-list.smt2', '../benchmarks/list-symbolic-heaps/list-sixteen-segments.smt2']
+>>> find_benchmarks("list", "seg") # doctest: +ELLIPSIS
+['../benchmarks/list-boolean-closure/list-not-list-segs.smt2', '../benchmarks/list-boolean-closure/unsat-list-segs-not-list.smt2', ...]
 >>> benchmark("unsat", "list", "seg")
 '../benchmarks/list-boolean-closure/unsat-list-segs-not-list.smt2'
 
@@ -66,8 +69,8 @@ from . import config, consts
 from . import slparser, wrapper, slapi
 from . import z3api
 from .backend import LambdaBackend, QuantifiedBackend, struct
-from .encoder import encoder, strategy, astbuilder, astutils
-from .model import model as model_module
+from .encoder import topdown, constraints
+from .model import model as model_module, checks
 from .utils import logger, utils
 from .z3api import z3utils
 
@@ -130,7 +133,7 @@ def _ensure_parsed(input):
     elif isinstance(input, str):
         # Single line => Probably file name
         return parse(input)
-    elif isinstance(input, encoder.Encoding):
+    elif isinstance(input, constraints.Z3Input):
         msg = "Received encoding instead of parser input or parse result"
         raise ApiException(msg)
     else:
@@ -153,7 +156,7 @@ def _default_depth(depth):
     else:
         return depth
 
-def encode(input, depth = None):
+def encode(input, override_bound = None):
     """Encodes the given input assuming uniform depth `depth`.
 
     Begins by parsing the input if necessary.
@@ -162,16 +165,11 @@ def encode(input, depth = None):
     :param: input: Filename, SMTLIB string or parse result to be encoded.
     :param: depth: `int` specifying the unfolding depth in the encoding.
 
-    :rtype: :class:`encoder.Encoding`
+    :rtype: :class:`constraints.Z3Input`
 
     """
-    depth = _default_depth(depth)
-    parsed = _ensure_parsed(input)
-    _ensure_correct_backend(parsed)
-    ast = astbuilder.processed_ast(sl.structs, parsed.expr)
-    calls = astutils.pred_calls(ast)
-    unfolding_dict = strategy.unfold_uniformly_to_exact_depth(calls, depth)
-    return encoder.encode_ast(ast, sl.structs)
+    sl_expr = _ensure_parsed(input).expr
+    return topdown.encode_sl_expr(sl, sl_expr, override_bound)
 
 ###############################################################################
 # Solving
@@ -179,33 +177,31 @@ def encode(input, depth = None):
 
 def is_sat_encoding(encoding):
     """Return True iff the given encoding is satisfiable."""
-    assert(isinstance(encoding, encoder.Encoding))
-    return z3api.is_sat(encoding.full())
+    assert(isinstance(encoding, constraints.Z3Input))
+    return z3api.is_sat(encoding.to_z3_expr())
 
-def is_sat(input, max_depth = config.MAX_DEPTH):
-    """Return True iff there is a satisfiable encoding of `input` of depth at most `max_depth`.
+def is_sat(input, override_bound = None):
+    """Return True iff `input` is satisfiable.
 
     :param: input: Input to solve (either filename, SMTLIB string or :class:`ParseResult`)
-    :param: max_depth: Maximal depth to consider in encoding
-    """
-    return solve(input, max_depth) is not None
+    :param: override_bound: Manual override for the size bound of the model
 
-def solve(input, max_depth = config.MAX_DEPTH, print_progress = False):
+    """
+    sl_expr = _ensure_parsed(input).expr
+    return topdown.sl_expr_is_sat(sl, sl_expr, override_bound)
+
+def solve(input, override_bound = None):
     """Compute :class:`model.SmtModel` for the given `input`.
 
-    Tries uniform-depth encodings of increasing depth until a model is
-    found or `max_depth` is exceeded.
-
     :param: input: Input to solve (either filename, SMTLIB string or :class:`ParseResult`)
-    :param: max_depth: Maximal depth to consider in encoding
-    :param: print_progress: Print statements about the current search depth
+    :param: override_bound: Manual override for the size bound of the model
 
     :rtype: :class:`model.SmtModel`
 
     """
     parsed = _ensure_parsed(input)
     _ensure_correct_backend(parsed)
-    return strategy.solve_by_unfolding_strategy(sl.structs, parsed.expr, external_depth_bound = max_depth, print_result = print_progress)
+    return topdown.model_of_sl_expr(sl, parsed.expr, override_bound)
 
 ###############################################################################
 # Model adaptation & plotting
@@ -216,15 +212,17 @@ def model(input):
 
     Raises :class:`ApiException` if no model is available.
 
-    :param: encoding: :class:`encoder.Encoding` instance to encode
+    :param: encoding: :class:`constraints.Z3Input` instance to encode
 
-    :rtype: :class:`model.SmtModel`"""
-    if isinstance(input, encoder.Encoding):
+    :rtype: :class:`model.SmtModel`
+
+    """
+    if isinstance(input, constraints.Z3Input):
         is_sat_encoding(input)
         try:
             return model_module.SmtModel(z3api.model(),
-                                         input.constants,
-                                         sl.structs)
+                                         input.all_consts(),
+                                         input.structs)
         except z3.Z3Exception as e:
             raise ApiException("No model available")
     else:
@@ -237,6 +235,8 @@ def z3_to_py(expr):
     else:
         return expr.as_long()
 
+def to_graph(model, ignore_null = False):
+    return checks.canonical_graph(model, ignore_null)
 
 def stats(mod = None):
     """Print statistics about the given :class:`model.SmtModel`."""

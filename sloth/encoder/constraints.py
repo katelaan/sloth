@@ -245,6 +245,7 @@ class Z3Input:
             self.decls = decls
         else:
             self.decls = SmtDecls.from_iterable(decls)
+        self.structs = astutils.structs_in_ast(self.encoded_ast)
 
     def to_smt2_string(self, check_sat = True, get_model = True):
         cmds = ''
@@ -271,9 +272,8 @@ class Z3Input:
         if self.encoded_ast is None:
             raise utils.SlothException("No SL AST defined => Can't compute constants")
         else:
-            structs = astutils.structs_in_ast(self.encoded_ast)
-            consts = cs.ConstantSet(structs)
-            consts_by_struct = astutils.consts_by_struct(self.encoded_ast, structs)
+            consts = cs.ConstantSet(self.structs)
+            consts_by_struct = astutils.consts_by_struct(self.encoded_ast, self.structs)
             for struct, locs in consts_by_struct.items():
                 consts.add_loc_consts(struct, *locs)
             consts.add_data_consts(*astutils.data_consts(self.encoded_ast))
@@ -284,7 +284,7 @@ class Z3Input:
                 if isinstance(decl, generic.Set):
                     sdecl = str(decl)
                     #print('Processing FP var {}'.format(sdecl))
-                    for s in structs:
+                    for s in self.structs:
                         for f in s.fields:
                             if sdecl.find(f) != -1:
                                 # Note that this way we add data fp vars to all structs
