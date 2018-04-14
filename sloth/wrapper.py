@@ -12,11 +12,6 @@ from .utils import logger, timing, utils
 # IO Routines for Preprocessing and Postprocessing
 ###############################################################################
 
-try:
-    FileNotFoundError
-except NameError:
-    FileNotFoundError = IOError
-
 def parse_sl(input_file, structs):
     """Parses the file of the given name into an expression reference."""
     try:

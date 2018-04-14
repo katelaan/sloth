@@ -20,6 +20,14 @@ sloth.encoder.astutils module
     :undoc-members:
     :show-inheritance:
 
+sloth.encoder.bounds module
+---------------------------
+
+.. automodule:: sloth.encoder.bounds
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 sloth.encoder.constraints module
 --------------------------------
 
@@ -52,18 +60,18 @@ sloth.encoder.disjunctive module
     :undoc-members:
     :show-inheritance:
 
-sloth.encoder.encoder module
-----------------------------
-
-.. automodule:: sloth.encoder.encoder
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 sloth.encoder.exceptions module
 -------------------------------
 
 .. automodule:: sloth.encoder.exceptions
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+sloth.encoder.exponential module
+--------------------------------
+
+.. automodule:: sloth.encoder.exponential
     :members:
     :undoc-members:
     :show-inheritance:

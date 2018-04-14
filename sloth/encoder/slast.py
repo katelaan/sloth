@@ -6,7 +6,7 @@ bookkeeping.
 .. testsetup::
 
    from sloth import *
-   from sloth.encoder import encoder as e
+   from sloth.encoder import exponential as e
    from sloth.encoder.astbuilder import processed_ast
    from sloth.encoder.slast import *
 

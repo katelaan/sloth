@@ -186,7 +186,7 @@ from .. import consts as consts_mod
 from ..utils import utils, logger, timing
 from ..model import model
 from .. import z3api
-from . import astbuilder, slast, encoder, utils as enc_utils, astutils
+from . import astbuilder, slast, exponential, utils as enc_utils, astutils
 
 DEBUG_PRINT = True
 INFO_PRINT = True
@@ -340,7 +340,7 @@ def apply_strategy_to_ast(ast, strategy, print_result = False):
         if INFO_PRINT:
             logger.info("Trying unfolding {}".format(unfolding_dict))
         # Assemble encoding based on unfolding
-        encoding = encoder.encode_ast(ast, unfolding_dict)
+        encoding = exponential.encode_ast(ast, unfolding_dict)
         prev_encoding = encoding
         if strategy_debug_enabled():
             logger.debug("STRATEGY: Full encoding:\n{!r}".format(encoding))
