@@ -1,3 +1,7 @@
+import sys
+
+assert sys.version_info >= (3, 5), 'sloth requires python >= 3.5'
+
 from .api import *
 
 if backend is None:
