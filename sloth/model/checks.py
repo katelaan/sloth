@@ -3,7 +3,6 @@
 .. testsetup::
 
    from sloth import *
-   from sloth.encoder import topdown
    from sloth.model.checks import *
 
 """
@@ -11,36 +10,15 @@
 import itertools
 
 from .. import z3api
-from ..encoder import topdown
+from ..encoder import encoder
 from ..utils import utils
-from . import model
+from . import model as model_mod
 from .graph import Graph, canonicalize, DATA_FLD
-
-def show_evaluation_steps(sl, sl_expr, export_file = None, override_bound = None):
-    e = topdown.encode_sl_expr(sl, sl_expr, override_bound = override_bound)
-    print('Constraint:\n-----------')
-    print(e.constraint)
-    if export_file is not None:
-        e.to_file(export_file)
-    z3e = e.to_z3_expr()
-    print('\n\nAs Z3 expression:\n-----------------')
-    print(z3e)
-    sat = z3api.is_sat(z3e)
-    print('\n\nIs SAT: {}'.format(sat))
-    if sat:
-        print('\n\nZ3 model:\n---------')
-        m = z3api.model()
-        print(m)
-        print('\n\nAdapted model:\n--------------')
-        a = e.label_model(m)
-        print(a)
-        print('\n\nAs graph:\n---------')
-        print(canonical_graph(a))
 
 def _as_graph(m):
     if isinstance(m, Graph):
         return m
-    elif isinstance(m, model.SmtModel):
+    elif isinstance(m, model_mod.SmtModel):
         return graph_from_smt_model(m)
     else:
         msg = "Can't construct graph from {}"
@@ -49,7 +27,7 @@ def _as_graph(m):
 def isomorphic(m1, m2):
     """
     >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
-    >>> m = topdown.model_of_sl_expr(sl, sl_expr)
+    >>> m = model(sl_expr)
     >>> isomorphic(m, Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3}))
     True
     >>> isomorphic(m, Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 1}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3}))
@@ -59,16 +37,6 @@ def isomorphic(m1, m2):
     g1 = _as_graph(m1)
     g2 = _as_graph(m2)
     return canonicalize(g1) == canonicalize(g2)
-
-def evaluate_to_graph(sl, sl_expr, ignore_null = False, override_bound = None):
-    """
-    >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
-    >>> evaluate_to_graph(sl, sl_expr)
-    Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3})
-
-    """
-    m = topdown.model_of_sl_expr(sl, sl_expr, override_bound)
-    return canonical_graph(m, ignore_null)
 
 def canonical_graph(m, ignore_null = False):
     g = graph_from_smt_model(m, ignore_null)
@@ -87,7 +55,7 @@ def graph_from_smt_model(m, ignore_null = False, skip_fn = is_aux_var):
     """Construct a graph model from an SMT model.
 
     >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
-    >>> m = topdown.model_of_sl_expr(sl, sl_expr)
+    >>> m = model(sl_expr)
     >>> print(graph_from_smt_model(m))
     Graph[
       0: [x] -[next]> 1

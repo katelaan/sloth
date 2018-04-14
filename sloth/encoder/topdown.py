@@ -6,7 +6,6 @@
    import z3
    from sloth import *
    from sloth.encoder.topdown import *
-   from sloth.model.checks import evaluate_to_graph
 
 Note that for some inputs that don't explicitly reference null,
 whether z3 includes null in the model cannot be predicted. In such
@@ -17,8 +16,7 @@ care whether null is in z3's model or not.
 Single pointers and small separating conjunctions of pointers / equalities
 --------------------------------------------------------------------------
 
->>> is_sat = functools.partial(sl_expr_is_sat, sl)
->>> eval_ = functools.partial(evaluate_to_graph, sl)
+>>> eval_ = evaluate_to_graph
 >>> x, y, z = sl.list.locs('x y z'); t, u, v, w = sl.tree.locs('t u v w'); d, e, f = z3.Ints('d e f')
 >>> is_sat(sl.list.pointsto(x, y))
 True
@@ -197,109 +195,10 @@ from z3 import And, Not, Or
 from .. import serialization
 from ..utils import utils, logger
 from ..z3api import z3utils
-from . import astbuilder
 from . import astutils
-from . import bounds as b
 from . import constraints as c
-from . import direct
+from . import shared
 from . import slast
-from .shared import *
-
-def structs_in_expr(sl, sl_expr):
-    """
-    >>> structs_in_expr(sl, sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null)))
-    [Struct(sl.list)]
-    >>> structs_in_expr(sl, z3.And(sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null)), z3.Not(sl.sepcon(sl.tree.left(t,u),sl.tree.right(t,v)))))
-    [Struct(sl.list), Struct(sl.tree)]
-
-    """
-
-    d = { tuple(s.parsable_decls()) : s for s in sl.structs}
-
-    def local_structs(sl_expr):
-        return { s for fns, s in d.items() if sl_expr.decl() in fns }
-
-    def leaf(sl_expr):
-        return local_structs(sl_expr)
-
-    def inner(sl_expr, folding):
-        return set(itertools.chain(local_structs(sl_expr), *folding))
-
-    return list(sorted(z3utils.expr_fold(sl_expr, leaf, inner), key=str))
-
-
-# TODO: Have a separate API module for the encoder package
-
-def model_of_sl_expr(sl, sl_expr, override_bound = None):
-    from .. import z3api
-    e = encode_sl_expr(sl, sl_expr, override_bound)
-    if z3api.is_sat(e.to_z3_expr()):
-        return e.label_model(z3api.model())
-    else:
-        return None
-
-def sl_expr_is_sat(sl, sl_expr, override_bound = None):
-    from .. import z3api
-    e = encode_sl_expr(sl, sl_expr, override_bound)
-    return z3api.is_sat(e.to_z3_expr())
-
-def encode_sl_expr(sl, sl_expr, override_bound = None):
-    structs = structs_in_expr(sl, sl_expr)
-    ast = astbuilder.ast(structs, sl_expr)
-    bounds = b.compute_size_bounds(structs, ast)
-    if override_bound is not None:
-        bounds = {s : override_bound for s in bounds}
-    # TODO: Can we have one set of fresh variables and one delta formula per struct? Meaning that we can encode lists and trees separately?
-    n = sum(bounds.values())
-    if n > 0:
-        if override_bound is not None:
-            note = ' [MANUAL OVERRIDE]'
-        else:
-            note = ''
-        logger.info('Computed bounds: {}{}'.format(bounds, note))
-        # TODO: Get rid of the explicit sort in the direct encoder API
-        global_encoder_fn = functools.partial(direct.is_bounded_heap_interpretation, n, structs)
-        # TODO: Ensure we pass in the right parameters. Possibly change the API somehwat.
-        encode_call_fn = direct.call_encoding
-    else:
-        global_encoder_fn = None
-        encode_call_fn = None
-    config = EncoderConfig(
-        structs,
-        encode_call_fn,
-        global_encoder_fn,
-        bounds_by_struct = bounds)
-    return encode_ast(config, ast)
-
-class EncoderConfig:
-    def __init__(self, structs, encode_call_fn = None, global_encoder_fn = None, bounds_by_struct = None):
-        self.structs = structs
-        # From set to avoid duplicate fields (data occurs in every struct!)
-        self.flds = list(sorted({f for s in structs for f in s.fields}))
-        if structs[0].fp_sort != structs[-1].fp_sort:
-            # To ensure this crashes early with the quantified backend
-            raise utils.SlothException("Can't use encoder config with quantified backend.")
-        self.fp_sort = structs[0].fp_sort
-        self.encode_call_fn = encode_call_fn
-        self.global_encoder_fn = global_encoder_fn
-        self.bounds_by_struct = bounds_by_struct
-        self.next_fp_vec_ix = 0
-        self.next_fp_ix = 0
-
-    fp_vec_prefix = 'Y'
-    fresh_fp_prefix = 'Z'
-
-    def _fp_vec_name(self, i, fld):
-        return EncoderConfig.fp_vec_prefix + str(self.next_fp_vec_ix) + fld
-
-    def get_fresh_fpvector(self):
-        self.next_fp_vec_ix += 1
-        return FPVector(self.fp_sort, self._fp_vec_name(self.next_fp_vec_ix, ''), self.flds)
-
-    def get_fresh_fp(self):
-        self.next_fp_ix += 1
-        return self.fp_sort[self.fresh_fp_prefix + str(self.next_fp_ix)]
-
 
 def as_split_constraints(A, B, ast, fresh = None):
     assert isinstance(A, c.SmtConstraint)
@@ -311,11 +210,11 @@ def as_split_constraints(A, B, ast, fresh = None):
     B.description = 'Definitional part (B)'
     if fresh is None:
         fresh = set()
-    return SplitEnc(A, B, fresh)
+    return shared.SplitEnc(A, B, fresh)
 
 def encode_ast(config, ast):
     # TODO: Make 'X' into a constant (see also use below as well as in the conversion of models to graphs)
-    X = FPVector(config.fp_sort, 'X', config.flds)
+    X = shared.FPVector(config.fp_sort, 'X', config.flds)
     config.next_fp_ix = 0 # Reset the next free FP id to 0 for consistent naming
     A, B, Z = encode_boolean(config, X, ast)
     A = c.And(A, description = '***** A *****')
@@ -354,7 +253,7 @@ def encode_boolean(config, X, ast):
         A = c.And(A1, connection,
                   description = 'Placing {} in the global context'.format(serialization.expr_to_smt2_string(ast.to_sl_expr(), multi_line = False)))
         Z = Z1.union(Y.all_fps())
-        return SplitEnc(A, B, Z)
+        return shared.SplitEnc(A, B, Z)
 
 def encode_spatial(config, ast, Y):
     type_ = type(ast)
@@ -380,7 +279,7 @@ def encode_spatial(config, ast, Y):
 def encode_eq(eq, Y):
     expr = eq.left == eq.right
     if eq.negated:
-        expr = z3.Not(expr)
+        expr = Not(expr)
     A = c.as_constraint(expr)
     B = c.And(*(fp.is_empty() for fp in Y.all_fps()))
     return as_split_constraints(A, B, eq)

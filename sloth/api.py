@@ -69,7 +69,7 @@ from . import config, consts
 from . import slparser, wrapper, slapi
 from . import z3api
 from .backend import LambdaBackend, QuantifiedBackend, struct
-from .encoder import topdown, constraints
+from .encoder import encoder, constraints
 from .model import model as model_module, checks
 from .utils import logger, utils
 from .z3api import z3utils
@@ -168,8 +168,9 @@ def encode(input, override_bound = None):
     :rtype: :class:`constraints.Z3Input`
 
     """
-    sl_expr = _ensure_parsed(input).expr
-    return topdown.encode_sl_expr(sl, sl_expr, override_bound)
+    parsed = _ensure_parsed(input)
+    _ensure_correct_backend(parsed)
+    return encoder.encode_sl_expr(sl, parsed.expr, override_bound)
 
 ###############################################################################
 # Solving
@@ -187,8 +188,8 @@ def is_sat(input, override_bound = None):
     :param: override_bound: Manual override for the size bound of the model
 
     """
-    sl_expr = _ensure_parsed(input).expr
-    return topdown.sl_expr_is_sat(sl, sl_expr, override_bound)
+    e = encode(input, override_bound)
+    return z3api.is_sat(e.to_z3_expr())
 
 def solve(input, override_bound = None):
     """Compute :class:`model.SmtModel` for the given `input`.
@@ -199,15 +200,39 @@ def solve(input, override_bound = None):
     :rtype: :class:`model.SmtModel`
 
     """
-    parsed = _ensure_parsed(input)
-    _ensure_correct_backend(parsed)
-    return topdown.model_of_sl_expr(sl, parsed.expr, override_bound)
+    e = encode(input, override_bound)
+    if z3api.is_sat(e.to_z3_expr()):
+        return e.label_model(z3api.model())
+    else:
+        return None
+
+def show_evaluation_steps(input, export_file = None, override_bound = None):
+    """Show the encoding as well as all types of model computed for the given input."""
+    e = encode(input, override_bound)
+    print('Constraint:\n-----------')
+    print(e.constraint)
+    if export_file is not None:
+        e.to_file(export_file)
+    z3e = e.to_z3_expr()
+    print('\n\nAs Z3 expression:\n-----------------')
+    print(z3e)
+    sat = z3api.is_sat(z3e)
+    print('\n\nIs SAT: {}'.format(sat))
+    if sat:
+        print('\n\nZ3 model:\n---------')
+        m = z3api.model()
+        print(m)
+        print('\n\nAdapted model:\n--------------')
+        a = e.label_model(m)
+        print(a)
+        print('\n\nAs graph:\n---------')
+        print(canonical_graph(a))
 
 ###############################################################################
 # Model adaptation & plotting
 ###############################################################################
 
-def model(input):
+def model(input, override_bound = None):
     """Returns model for the given expression or encoding.
 
     Raises :class:`ApiException` if no model is available.
@@ -226,7 +251,17 @@ def model(input):
         except z3.Z3Exception as e:
             raise ApiException("No model available")
     else:
-        return solve(input)
+        return solve(input, override_bound)
+
+def evaluate_to_graph(input, ignore_null = False, override_bound = None):
+    """
+    >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
+    >>> evaluate_to_graph(sl_expr)
+    Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3})
+
+    """
+    m = solve(input, override_bound)
+    return model_to_graph(m, ignore_null)
 
 def z3_to_py(expr):
     """Converts given z3 literal into python's built-in numbers."""
@@ -235,7 +270,7 @@ def z3_to_py(expr):
     else:
         return expr.as_long()
 
-def to_graph(model, ignore_null = False):
+def model_to_graph(model, ignore_null = False):
     return checks.canonical_graph(model, ignore_null)
 
 def stats(mod = None):

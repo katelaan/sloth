@@ -8,6 +8,8 @@
 
 """
 
+import itertools
+
 import z3
 
 from .. import consts
@@ -182,3 +184,26 @@ def by_complexity(c):
         1 if is_array_sort(c.decl().range()) else 0,
         str(c.decl()),
         str(c))
+
+def structs_in_expr(sl, sl_expr):
+    """
+    >>> x, y, z = sl.list.locs('x y z'); t, u, v = sl.tree.locs('t u v')
+    >>> structs_in_expr(sl, sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null)))
+    [Struct(sl.list)]
+    >>> structs_in_expr(sl, z3.And(sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null)), z3.Not(sl.sepcon(sl.tree.left(t,u),sl.tree.right(t,v)))))
+    [Struct(sl.list), Struct(sl.tree)]
+
+    """
+
+    d = { tuple(s.parsable_decls()) : s for s in sl.structs}
+
+    def local_structs(sl_expr):
+        return { s for fns, s in d.items() if sl_expr.decl() in fns }
+
+    def leaf(sl_expr):
+        return local_structs(sl_expr)
+
+    def inner(sl_expr, folding):
+        return set(itertools.chain(local_structs(sl_expr), *folding))
+
+    return list(sorted(expr_fold(sl_expr, leaf, inner), key=str))

@@ -5,6 +5,7 @@
    from sloth import *
    from sloth.encoder import constraints
    from sloth.encoder.direct import *
+   from sloth.encoder.shared import FPVector
    sort = LambdaBackend.make_loc_sort(None)
    fpsort = sort.set_sort()
 
@@ -21,7 +22,7 @@ from ..utils import utils
 from ..z3api import rewriter
 from . import constraints as c
 from . import slast
-from .shared import *
+from . import shared
 
 def non_identical(x_i, x_j):
     # For some reason x_i is not x_j doesn't appear to do the right thing
@@ -441,7 +442,7 @@ def is_struct_footprint(n, struct, Z, y):
     )
 
     """
-    assert isinstance(y, FPVector)
+    assert isinstance(y, shared.FPVector)
     sort = struct.sort
     intersection = lambdas.LambdaSet.intersection_of_all(
         sort,
@@ -714,8 +715,8 @@ def data_preds_hold(n, struct, Z, preds):
         description = 'All data predicates hold')
 
 def struct_encoding(n, Y, struct, Z, preds, root, *stops):
-    assert preds is None or isinstance(preds, DataPreds)
-    assert isinstance(Y, FPVector)
+    assert preds is None or isinstance(preds, shared.DataPreds)
+    assert isinstance(Y, shared.FPVector)
     cs_a = [is_struct_footprint(n, struct, Z, Y),
             is_acyclic(n, struct, root, Z),
             all_leaves_are_stop_nodes(n, Z, struct, *stops)
@@ -742,17 +743,17 @@ def struct_encoding(n, Y, struct, Z, preds, root, *stops):
     fresh_decls = set(itertools.chain([Z],
                                       xs(struct.sort, n),
                                       rs(struct.sort, n)))
-    return SplitEnc(A, B, fresh_decls)
+    return shared.SplitEnc(A, B, fresh_decls)
 
 def call_encoding(config, call, Y):
     "Encode the given predicate call `call` w.r.t. the footprint `Y`."
     assert isinstance(call, slast.PredCall)
-    assert isinstance(Y, FPVector)
+    assert isinstance(Y, shared.FPVector)
     n = sum(config.bounds_by_struct.values())
     assert n > 0, 'No size bound defined in config'
     Z = config.get_fresh_fp()
     if call.pred is not None:
-        dp = DataPreds((call.fld, call.pred))
+        dp = shared.DataPreds((call.fld, call.pred))
     else:
         dp = None
     return struct_encoding(n, Y, call.struct, Z, dp, call.root, *call.stop_nodes)
