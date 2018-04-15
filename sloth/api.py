@@ -226,7 +226,11 @@ def show_evaluation_steps(input, export_file = None, override_bound = None):
         a = e.label_model(m)
         print(a)
         print('\n\nAs graph:\n---------')
-        print(canonical_graph(a))
+        g = checks.canonical_graph(a)
+        print(g)
+        print('\nGraph repr:\n-----------')
+        print(repr(g))
+
 
 ###############################################################################
 # Model adaptation & plotting

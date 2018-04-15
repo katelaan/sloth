@@ -19,6 +19,9 @@ class SlothException(Exception):
 class IllegalSolverState(SlothException):
     """Unexpected state reached => Probably bug in our solver"""
 
+def wrong_type(obj):
+    return 'Received argument {} of unsupported type {}'.format(obj, type(obj).__name__)
+
 def merge_dicts(*zs):
     """Merge one or more dictionaries into one without modifying any argument dict
 
@@ -68,6 +71,30 @@ def seq_exists(p, seq):
         if p(item):
             return True
     return False
+
+def consecutive_pairs(it):
+    """Yield all (overlapping) conseuctive pairs from the iterable.
+
+    >>> list(consecutive_pairs(range(5)))
+    [(0, 1), (1, 2), (2, 3), (3, 4)]
+
+    """
+    it = iter(it)
+    try:
+        fst = next(it)
+        snd = next(it)
+    except:
+        # Fewer than two elements => No pairs to yield
+        pass
+    else:
+        yield (fst, snd)
+        try:
+            while True:
+                fst = snd
+                snd = next(it)
+                yield (fst, snd)
+        except StopIteration:
+            pass
 
 def contains_all(substrings, string):
         for s in substrings:

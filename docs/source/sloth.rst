@@ -56,6 +56,14 @@ sloth.slapi module
     :undoc-members:
     :show-inheritance:
 
+sloth.slbuilders module
+-----------------------
+
+.. automodule:: sloth.slbuilders
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 sloth.sloth module
 ------------------
 

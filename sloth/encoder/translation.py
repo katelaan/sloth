@@ -111,7 +111,7 @@ fact also valid but not among the ones tested for. If so, add the new
 output to the accepted solutions like in the first test case below.
 
 >>> def is_in(g, gs): return (True if g in gs else g)
->>> is_in(eval_(sl.list(x)), (Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1}), Graph({0}, {}, {'sl.list.null': 0, 'x': 0})))
+>>> is_in(eval_(sl.list(x)), (Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1}), Graph({0}, {}, {'sl.list.null': 0, 'x': 0}), Graph({0, 1, 2}, {(1, 'next'): 2, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1})))
 True
 >>> eval_(sl.list.seg(x, y))
 Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1, 'y': 1})
