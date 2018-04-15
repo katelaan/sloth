@@ -8,12 +8,12 @@
 
 From :class:`z3.ExprRef` to :class`SlAstManager` and back:
 
->>> expr = sl.sepcon(sl.list("a"), sl.list.seg("b", "c"))
+>>> expr = sl.sepcon(sl.list('a'), sl.list.seg('b', 'c'))
 >>> ast(sl.structs, expr)
 SepCon(PredCall('sl.list', None, None, a), PredCall('sl.list', None, None, b, c))
 >>> ast(sl.structs, expr).to_sl_expr()
 sl.sepcon(sl.list(a), sl.list.seg(b, c))
->>> expr = And(sl.sepcon(sl.list("a"), sl.list.seg("b", "c")), sl.list.dpred.next(sl.alpha < sl.beta, "a"))
+>>> expr = And(sl.sepcon(sl.list('a'), sl.list.seg('b', 'c')), sl.list.dpred.next(sl.alpha < sl.beta, 'a'))
 >>> ast(sl.structs, expr)
 SlAnd(SepCon(PredCall('sl.list', None, None, a), PredCall('sl.list', None, None, b, c)), PredCall('sl.list', 'next', DataAtom(sl.alpha < sl.beta), a))
 >>> ast(sl.structs, expr).to_sl_expr()
@@ -22,7 +22,7 @@ And(sl.sepcon(sl.list(a), sl.list.seg(b, c)),
 
 Checking properties of the SL assertions:
 
->>> expr = sl.sepcon(sl.list("a"), sl.list.seg("b", "c"))
+>>> expr = sl.sepcon(sl.list('a'), sl.list.seg('b', 'c'))
 >>> spatial = ast(sl.structs, expr)
 >>> spatial.is_positive()
 True
@@ -76,7 +76,7 @@ def construct_pure_tree(expr):
     """Converts the given :class:`z3.ExprRef` of a pure formula into an
 :class:`SlAst`.
 
-    >>> a, b = Ints("a b")
+    >>> a, b = Ints('a b')
     >>> construct_pure_tree(a == b)
     DataAtom(a == b)
     >>> expr = And(a == b, Or(a < b, Not(a > b)))
@@ -139,21 +139,21 @@ def construct_spatial_tree(expr, structs):
     """Converts the given :class:`z3.ExprRef` of a pure formula into an
 :class:`SlAst`.
 
-    >>> construct_spatial_tree(sl.list.pointsto("a", "b"), sl.structs)
+    >>> construct_spatial_tree(sl.list.pointsto('a', 'b'), sl.structs)
     PointsTo('sl.list', a, b)
-    >>> construct_spatial_tree(sl.tree.left("a", "b"), sl.structs)
+    >>> construct_spatial_tree(sl.tree.left('a', 'b'), sl.structs)
     PointsToSingleField('sl.tree', 'left', a, b)
-    >>> expr = sl.sepcon(sl.list("a"), sl.list.seg("b", "c"))
+    >>> expr = sl.sepcon(sl.list('a'), sl.list.seg('b', 'c'))
     >>> construct_spatial_tree(expr, sl.structs)
     SepCon(PredCall('sl.list', None, None, a), PredCall('sl.list', None, None, b, c))
     >>> construct_spatial_tree(expr, sl.structs).to_sl_expr()
     sl.sepcon(sl.list(a), sl.list.seg(b, c))
-    >>> construct_spatial_tree(sl.tree.seg2("a", "b", "c"), sl.structs).to_sl_expr()
+    >>> construct_spatial_tree(sl.tree.seg2('a', 'b', 'c'), sl.structs).to_sl_expr()
     sl.tree.seg2(a, b, c)
-    >>> dp = sl.list.dpred.next(sl.alpha < sl.beta, "x")
+    >>> dp = sl.list.dpred.next(sl.alpha < sl.beta, 'x')
     >>> construct_spatial_tree(dp, sl.structs)
     PredCall('sl.list', 'next', DataAtom(sl.alpha < sl.beta), x)
-    >>> dp = sl.tree.dpred.right1(sl.alpha > sl.beta, "x", "y")
+    >>> dp = sl.tree.dpred.right1(sl.alpha > sl.beta, 'x', 'y')
     >>> construct_spatial_tree(dp, sl.structs)
     PredCall('sl.tree', 'right', DataAtom(sl.alpha > sl.beta), x, y)
     >>> construct_spatial_tree(dp, sl.structs).to_sl_expr()
@@ -169,8 +169,8 @@ def full_rewriting_dict(structs):
     return rewriting_dict
 
 def ast(structs, expr):
-    assert(isinstance(structs, Sequence))
-    assert(isinstance(expr, z3.ExprRef))
+    assert isinstance(structs, Sequence)
+    assert isinstance(expr, z3.ExprRef)
     # Ensure there's no And/Or with more than two args
     # -- otherwise our rewriter will fail!
     expr = typing.make_vararg_ops_binary(expr)

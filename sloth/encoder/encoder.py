@@ -12,7 +12,7 @@ from ..z3api import z3utils
 def encode_sl_expr(sl, sl_expr, override_bound = None):
     structs = z3utils.structs_in_expr(sl, sl_expr)
     ast = astbuilder.ast(structs, sl_expr)
-    bounds = b.compute_size_bounds(structs, ast)
+    bounds = b.paper_size_bounds(ast)
     if override_bound is not None:
         bounds = {s : override_bound for s in bounds}
     # TODO: Can we have one set of fresh variables and one delta formula per struct? Meaning that we can encode lists and trees separately?

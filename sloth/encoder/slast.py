@@ -15,6 +15,7 @@ bookkeeping.
 from z3 import is_const, And, Or, Not, ExprRef
 
 from ..backend import symbols
+from ..utils import utils
 from ..z3api import z3utils
 from .utils import EncoderState
 from . import astutils
@@ -142,7 +143,8 @@ class PredCall(SlAst):
         assert (fld is None) or isinstance(fld, str)
         assert (fld is None) or (pred is not None), \
                 'Data predicate field is set, but not the predicate itself'
-        assert (pred is None) or isinstance(pred, DataAtom)
+        # FIXME: This is incorrect -- there can be Boolean structure in the data predicate, in which case the following assertion fails!
+        assert (pred is None) or isinstance(pred, DataAtom), utils.wrong_type(pred)
         assert isinstance(root, ExprRef), \
             'Cannot use {} of type {} as data structure root'.format(root, type(root).__name__)
         self.struct = struct

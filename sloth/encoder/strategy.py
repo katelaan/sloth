@@ -219,7 +219,7 @@ def solve_by_unfolding_strategy(structs, expr, external_depth_bound, strategy = 
         logger.debug(str(ast))
     # Get list of all the predicate calls that have to be unfolded
     pred_calls = astutils.pred_calls(ast)
-    consts_by_struct = astutils.consts_by_struct(ast, structs)
+    consts_by_struct = astutils.consts_by_struct(ast)
     bound = compute_depth_bound(consts_by_struct, pred_calls)
     logger.info("Computed unfolding bound {}".format(bound))
     if bound > external_depth_bound:

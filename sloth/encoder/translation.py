@@ -186,8 +186,8 @@ True
 Tree calls
 ----------
 
->>> eval_(sl.tree(t))
-Graph({0}, {}, {'sl.tree.null': 0, 't': 0})
+>>> is_in(eval_(sl.tree(t)), (Graph({0}, {}, {'sl.tree.null': 0, 't': 0}), Graph({0, 1}, {(1, 'left'): 0, (1, 'right'): 0}, {'sl.tree.null': 0, 't': 1})))
+True
 >>> eval_(sl.tree.seg2(t, u, v), override_bound = 4)
 Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 3})
 >>> eval_(sl.sepcon(sl.tree.seg2(t, u, v), sl.tree.neq(u, sl.tree.null), sl.tree.neq(v, sl.tree.null)), override_bound = 1)
@@ -236,7 +236,7 @@ def encode_ast(config, ast):
     cs = [A,B]
     if config.global_encoder_fn is not None:
         cs.append(config.global_encoder_fn())
-    consts = astutils.consts_by_struct(ast, config.structs)
+    consts = astutils.consts_by_struct(ast)
     dconsts = astutils.data_consts(ast)
     heap_funs = itertools.chain(*(s.heap_fns() for s in config.structs))
     nulls = [struct.null for struct in config.structs]
