@@ -1,14 +1,19 @@
 """Encoding of non-call SL formulas.
 
+The logic for encoding calls is injected via an
+:class:`encoder.EncoderConfig` object, as is the generation of global
+constraints (e.g. the Delta formula from the IJCAR paper.)
+
 .. testsetup::
 
    import functools
    import z3
    from sloth import *
-   from sloth.encoder.topdown import *
+   from sloth.model.graph import Graph
+   from sloth.encoder.translation import *
 
-Note that for some inputs that don't explicitly reference null,
-whether z3 includes null in the model cannot be predicted. In such
+Note that for some inputs that don't explicitly reference null, it
+cannot be predicted whether z3 includes null in the model. In such
 cases, we pass the `ignore_null` flag to the evaluation function to
 suppress including null nodes in the graph model. This way we don't
 care whether null is in z3's model or not.
@@ -97,8 +102,17 @@ underconstrained. For this reason, we don't require exact data values
 in the graph output, but we check with separate API calls that the
 data interpretation is consistent with the constraints that are there.
 
->>> eval_(sl.list(x))
-Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1})
+For some other benchmarks, such as `sl.list(x)`, z3's output is also
+nondeterministic. In such cases we check that the solution we get is
+among the solutions that z3 returns.
+
+If a test case fails, you should check whether the output is in
+fact also valid but not among the ones tested for. If so, add the new
+output to the accepted solutions like in the first test case below.
+
+>>> def is_in(g, gs): return (True if g in gs else g)
+>>> is_in(eval_(sl.list(x)), (Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1}), Graph({0}, {}, {'sl.list.null': 0, 'x': 0})))
+True
 >>> eval_(sl.list.seg(x, y))
 Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1, 'y': 1})
 >>> eval_(z3.And(sl.list.seg(x, y), sl.list.eq(x, sl.list.null)))

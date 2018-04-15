@@ -5,7 +5,7 @@ from . import astbuilder
 from . import bounds as b
 from . import direct
 from . import shared
-from . import topdown
+from . import translation
 
 from ..z3api import z3utils
 
@@ -35,7 +35,7 @@ def encode_sl_expr(sl, sl_expr, override_bound = None):
         encode_call_fn,
         global_encoder_fn,
         bounds_by_struct = bounds)
-    return topdown.encode_ast(config, ast)
+    return translation.encode_ast(config, ast)
 
 class EncoderConfig:
     def __init__(self, structs, encode_call_fn = None, global_encoder_fn = None, bounds_by_struct = None):

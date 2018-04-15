@@ -60,6 +60,14 @@ sloth.encoder.disjunctive module
     :undoc-members:
     :show-inheritance:
 
+sloth.encoder.encoder module
+----------------------------
+
+.. automodule:: sloth.encoder.encoder
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 sloth.encoder.exceptions module
 -------------------------------
 
@@ -124,10 +132,10 @@ sloth.encoder.strategy module
     :undoc-members:
     :show-inheritance:
 
-sloth.encoder.topdown module
-----------------------------
+sloth.encoder.translation module
+--------------------------------
 
-.. automodule:: sloth.encoder.topdown
+.. automodule:: sloth.encoder.translation
     :members:
     :undoc-members:
     :show-inheritance:
