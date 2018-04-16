@@ -12,17 +12,28 @@ constraints (e.g. the Delta formula from the IJCAR paper.)
    from sloth.model.graph import Graph
    from sloth.encoder.translation import *
 
+>>> eval_ = evaluate_to_graph
+>>> x, y, z = sl.list.locs('x y z'); t, u, v, w = sl.tree.locs('t u v w'); d, e, f = z3.Ints('d e f')
+
 Note that for some inputs that don't explicitly reference null, it
 cannot be predicted whether z3 includes null in the model. In such
 cases, we pass the `ignore_null` flag to the evaluation function to
 suppress including null nodes in the graph model. This way we don't
 care whether null is in z3's model or not.
 
+For some other benchmarks, such as `sl.list(x)`, z3's output is also
+nondeterministic. In such cases we check that the solution we get is
+among the solutions that z3 returns.
+
+If a test case fails, you should check whether the output is in fact
+also valid but not among the ones tested for. If so, we check against
+a set of valid solutions with the following auxiliary function:
+
+>>> def is_in(g, gs): return (True if g in gs else g)
+
 Single pointers and small separating conjunctions of pointers / equalities
 --------------------------------------------------------------------------
 
->>> eval_ = evaluate_to_graph
->>> x, y, z = sl.list.locs('x y z'); t, u, v, w = sl.tree.locs('t u v w'); d, e, f = z3.Ints('d e f')
 >>> is_sat(sl.list.pointsto(x, y))
 True
 >>> eval_(sl.list.pointsto(x, y))
@@ -54,9 +65,15 @@ Input with Boolean structure
 Graph({0, 1, 2}, {(1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 1})
 >>> eval_(z3.And(sl.list.pointsto(x,y), sl.list.pointsto(x, sl.list.null)))
 Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 0})
->>> eval_(z3.Or(sl.list.pointsto(x,y), sl.tree.pointsto(t, u, v)), ignore_null = True)
-Graph({0, 1, 2, 3}, {(0, 'left'): 1, (0, 'right'): 2}, {'t': 0, 'u': 1, 'v': 2, 'x': 3})
->>> eval_(z3.Not(sl.list.pointsto(x,y)))
+
+For the following disjunction, z3 sometimes returns a tree model and
+sometimes returns a list model. (Because there is allocation in only
+one of structures, it's fine that z3 interprets x and t as the same
+value in the list case.)
+
+>>> is_in(eval_(z3.Or(sl.list.pointsto(x,y), sl.tree.pointsto(t, u, v)), ignore_null = True), (Graph({0, 1, 2, 3}, {(0, 'left'): 1, (0, 'right'): 2}, {'t': 0, 'u': 1, 'v': 2, 'x': 3}), Graph({0, 1}, {(0, 'next'): 1}, {'t': 0, 'x': 0, 'y': 1})))
+True
+>>> eval_(z3.Not(sl.list.pointsto(x,y)), ignore_null = True)
 Graph({0}, {}, {'x': 0})
 >>> eval_(z3.And(sl.list.pointsto(y,x), z3.Not(sl.list.pointsto(x,y))))
 Graph({0, 1, 2}, {(2, 'next'): 1}, {'sl.list.null': 0, 'x': 1, 'y': 2})
@@ -102,23 +119,14 @@ underconstrained. For this reason, we don't require exact data values
 in the graph output, but we check with separate API calls that the
 data interpretation is consistent with the constraints that are there.
 
-For some other benchmarks, such as `sl.list(x)`, z3's output is also
-nondeterministic. In such cases we check that the solution we get is
-among the solutions that z3 returns.
-
-If a test case fails, you should check whether the output is in
-fact also valid but not among the ones tested for. If so, add the new
-output to the accepted solutions like in the first test case below.
-
->>> def is_in(g, gs): return (True if g in gs else g)
 >>> is_in(eval_(sl.list(x)), (Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1}), Graph({0}, {}, {'sl.list.null': 0, 'x': 0}), Graph({0, 1, 2}, {(1, 'next'): 2, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1})))
 True
 >>> eval_(sl.list.seg(x, y))
 Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1, 'y': 1})
 >>> eval_(z3.And(sl.list.seg(x, y), sl.list.eq(x, sl.list.null)))
 Graph({0}, {}, {'sl.list.null': 0, 'x': 0, 'y': 0})
->>> eval_(z3.And(sl.list.seg(x, y), z3.Not(sl.list.eq(x, sl.list.null)), z3.Not(sl.list.eq(x, y))))
-Graph({0, 1, 2}, {(1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2})
+>>> is_in(eval_(z3.And(sl.list.seg(x, y), z3.Not(sl.list.eq(x, sl.list.null)), z3.Not(sl.list.eq(x, y)))), (Graph({0, 1, 2}, {(1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2}), Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3}, {'sl.list.null': 0, 'x': 1, 'y': 3})))
+True
 >>> eval_(sl.list.seg(x, sl.list.null))
 Graph({0}, {}, {'sl.list.null': 0, 'x': 0})
 >>> eval_(sl.sepcon(sl.list.seg(x, sl.list.null), sl.list.neq(x, sl.list.null)))

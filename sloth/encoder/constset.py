@@ -3,6 +3,7 @@
 .. testsetup::
 
   from sloth import *
+  from sloth.encoder.constset import *
 
 """
 

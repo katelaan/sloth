@@ -54,15 +54,9 @@ def is_aux_var(x):
 def graph_from_smt_model(m, ignore_null = False, skip_fn = is_aux_var):
     """Construct a graph model from an SMT model.
 
-    >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
-    >>> m = model(sl_expr)
-    >>> print(graph_from_smt_model(m))
-    Graph[
-      0: [x] -[next]> 1
-      1: [y] -[next]> 2
-      2: [z] -[next]> 3
-      3: [sl.list.null] ->
-    ]
+    >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null)); m = model(sl_expr)
+    >>> graph_from_smt_model(m) in (Graph({0, 1, 2, 3}, {(0, 'next'): 1, (1, 'next'): 2, (3, 'next'): 0}, {'sl.list.null': 2, 'x': 3, 'y': 0, 'z': 1}),Graph({0, 1, 2, 3}, {(0, 'next'): 1, (1, 'next'): 2, (2, 'next'): 3}, {'sl.list.null': 3, 'x': 0, 'y': 1, 'z': 2}))
+    True
 
     """
     # TODO: Split into smaller parts

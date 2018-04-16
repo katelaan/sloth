@@ -10,9 +10,10 @@ the encoding.
 
 """
 
+import collections
+
 from ..utils import utils
-from .utils import EncoderState
-from .constset import ConstantSet
+from . import slast
 
 def fold(f_inner, f_leaf, ast):
     if ast.is_leaf():
@@ -21,6 +22,45 @@ def fold(f_inner, f_leaf, ast):
         # List rather than genexpr to force evaluation
         child_results = [fold(f_inner, f_leaf, child) for child in ast]
         return f_inner(ast, child_results)
+
+def atoms(ast):
+    """Generate all atomic formulas in the AST. (With duplicates, if any.)
+
+    >>> list(atoms(ast(sl.structs, z3.And(sl.sepcon(sl.list.pointsto('x', 'y'), sl.list.eq('x', 'z')), z3.Not(sl.list.pointsto('z', 'y'))))))
+    [PointsTo('sl.list', x, y), SpatialEq(x, z, False), PointsTo('sl.list', z, y)]
+
+    """
+    if ast.is_leaf():
+        yield ast
+    else:
+        for child in ast:
+            yield from atoms(child)
+
+AtomWithPolarity = collections.namedtuple('AtomWithPolarity', 'atom is_negated')
+
+def atoms_with_polarity(ast, root_is_negated = False):
+    """Generate all atomic formulas in the AST together with a flag whether they are under negation.
+
+    (Returns duplicates, if any.)
+
+    >>> list(atoms_with_polarity(ast(sl.structs, z3.And(sl.sepcon(sl.list.pointsto('x', 'y'), sl.list.eq('x', 'z')), z3.Not(sl.list.pointsto('z', 'y'))))))
+    [AtomWithPolarity(atom=PointsTo('sl.list', x, y), is_negated=False), AtomWithPolarity(atom=SpatialEq(x, z, False), is_negated=False), AtomWithPolarity(atom=PointsTo('sl.list', z, y), is_negated=True)]
+    >>> list(atoms_with_polarity(ast(sl.structs, z3.And(z3.Not(z3.Not(sl.sepcon(sl.list.pointsto('x', 'y'), sl.list.eq('x', 'z')))), z3.Not(sl.list.pointsto('z', 'y'))))))
+    [AtomWithPolarity(atom=PointsTo('sl.list', x, y), is_negated=False), AtomWithPolarity(atom=SpatialEq(x, z, False), is_negated=False), AtomWithPolarity(atom=PointsTo('sl.list', z, y), is_negated=True)]
+
+    """
+    if ast.is_leaf():
+        yield AtomWithPolarity(ast, root_is_negated)
+    else:
+        is_not = isinstance(ast, slast.SlNot)
+        for child in ast:
+            yield from atoms_with_polarity(child, root_is_negated != is_not)
+
+def contains_calls(ast):
+    for atom in atoms(ast):
+        if atom.is_pred_call():
+            return True
+    return False
 
 def consts_by_struct(ast):
     """Return a map from each struct in the AST to the set of constants of that struct.
@@ -56,7 +96,7 @@ def data_preds_by_struct(ast):
         pass
     def f_leaf(obj):
         nonlocal d_aux
-        if obj.is_pred_call:
+        if obj.is_pred_call():
             if obj.pred is not None:
                 d_aux.setdefault(obj.struct, []).append((obj.fld,obj.pred))
     fold(f_inner, f_leaf, ast)

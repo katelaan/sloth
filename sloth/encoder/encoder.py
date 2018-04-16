@@ -2,6 +2,7 @@ import functools
 
 from ..utils import logger
 from . import astbuilder
+from . import astutils
 from . import bounds as b
 from . import direct
 from . import shared
@@ -12,12 +13,18 @@ from ..z3api import z3utils
 def encode_sl_expr(sl, sl_expr, override_bound = None):
     structs = z3utils.structs_in_expr(sl, sl_expr)
     ast = astbuilder.ast(structs, sl_expr)
-    bounds = b.paper_size_bounds(ast)
+    #bounds = b.paper_size_bounds(ast)
+    bounds = b.compute_size_bounds(ast)
     if override_bound is not None:
         bounds = {s : override_bound for s in bounds}
     # TODO: Can we have one set of fresh variables and one delta formula per struct? Meaning that we can encode lists and trees separately?
     n = sum(bounds.values())
-    if n > 0:
+    if astutils.contains_calls(ast):
+        if n == 0:
+            logger.info('have a call => manually force the bound to be at least 1')
+            bounds = {s : 1 for s in bounds}
+            n = len(bounds)
+
         if override_bound is not None:
             note = ' [MANUAL OVERRIDE]'
         else:

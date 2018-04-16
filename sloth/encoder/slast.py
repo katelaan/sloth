@@ -282,8 +282,6 @@ class BinOp(Op):
         yield self.left
         yield self.right
 
-# TODO: We have the same function in the primitives -- clean this up (e.g. move the dictionary somewhere else)
-
 class SepCon(BinOp):
     """A binary separating conjunction.
 
