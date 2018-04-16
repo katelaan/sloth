@@ -16,6 +16,7 @@ from .. import consts
 from .. import config
 from ..utils import utils
 from ..utils import logger
+from . import rewriter
 
 ###############################################################################
 # High-level solver interaction
@@ -80,7 +81,7 @@ def is_array_sort(sort):
     return isinstance(sort, z3.ArraySortRef)
 
 ###############################################################################
-# Utilities for expression references
+# Folds
 ###############################################################################
 
 def expr_fold(smt_expr, leaf, inner):
@@ -119,6 +120,10 @@ def expr_fold_stateful(smt_expr, leaf, inner, update, state):
     else:
         folding = [expr_fold_stateful(c, leaf, inner, update, update(state)) for c in smt_expr.children()]
         return inner(smt_expr, folding, state)
+
+###############################################################################
+# Various projection functions
+###############################################################################
 
 keywords = ['True', 'False']
 

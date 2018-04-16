@@ -67,9 +67,6 @@ class Struct:
         # Currently, we only propertly support one data field per structure!
         assert(len(data_fields) == 1)
         self.data_field = list(data_fields)[0]
-
-        self.decl_mapping = None
-        self._init_decl_mapping()
         self.max_segs = config.max_num_stops(self)
 
     def __str__(self):
@@ -77,20 +74,6 @@ class Struct:
 
     def __repr__(self):
         return "Struct({})".format(self.name)
-
-    def _init_decl_mapping(self):
-        self._decl_mapping = {
-        symbols.sep_con_fn : z3.Function(self.name+"."+consts.SEP_CON_SUFFIX,
-                                 z3.BoolSort(), z3.BoolSort(), z3.BoolSort()),
-        symbols.submodel_fn : z3.Function(self.name+"."+consts.SUBMODEL_SUFFIX,
-                                  z3.BoolSort(), z3.BoolSort()),
-        symbols.and_decl : z3.Function(self.name+"."+consts.CONJUNCTION_SUFFIX,
-                                               z3.BoolSort(), z3.BoolSort(), z3.BoolSort()),
-        symbols.or_decl : z3.Function(self.name+"."+consts.DISJUNCTION_SUFFIX,
-                                               z3.BoolSort(), z3.BoolSort(), z3.BoolSort()),
-        symbols.not_decl : z3.Function(self.name+"."+consts.NEGATION_SUFFIX,
-                                               z3.BoolSort(), z3.BoolSort())
-    }
 
     def _check_rule_order(self):
         for rule in self.unrolling_rules:
@@ -188,17 +171,6 @@ class Struct:
     ##############################
     # Encoding
     ##############################
-
-    def sorted_version(self, pred):
-        """Return a tagged variant of the given predicate symbol
-        (for use in typing the SMT input)"""
-        try:
-            return self._decl_mapping[pred]
-        except KeyError:
-            raise StructureAccessException("No sorted version of {}".format(pred))
-
-    def sorted_versions(self):
-        return self._decl_mapping.values()
 
     def heap_fns(self):
         """Return generator for all heap functions associated with this structure,

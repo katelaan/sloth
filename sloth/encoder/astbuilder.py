@@ -41,8 +41,9 @@ import z3
 
 from .. import config
 from ..backend import symbols
+from ..utils import logger
 from ..z3api import rewriter
-from . import typing, preproc
+from . import preproc
 from .slast import *
 
 def apply_to_children(fun):
@@ -173,7 +174,7 @@ def ast(structs, expr):
     assert isinstance(expr, z3.ExprRef)
     # Ensure there's no And/Or with more than two args
     # -- otherwise our rewriter will fail!
-    expr = typing.make_vararg_ops_binary(expr)
+    expr = make_vararg_ops_binary(expr)
     return rewrite_with_dictionary(expr, full_rewriting_dict(structs))
 
 def processed_ast(structs, expr):
@@ -181,3 +182,30 @@ def processed_ast(structs, expr):
     preproc.assign_negation_to_leaves(t)
     preproc.assign_ids(t)
     return t
+
+def _make_vararg_ops_binary_rewriter():
+    # TODO: Logarithmic instead of linear depth for more readable pretty printing
+    def rec_rewrite(decl, remainder):
+        if len(remainder) == 1:
+            # Don't crash on redundant decl-applications like z3.And(sl.list("a"))
+            return remainder[0]
+        if len(remainder) == 2:
+            return decl(remainder[0], remainder[1])
+        else:
+            return decl(remainder[0], rec_rewrite(decl, remainder[1:]))
+
+    def rewrite(t, cs):
+        if len(cs) > 2:
+            logger.debug("Turning {} with {} children into sequence of binary applications".format(t, cs))
+        return rec_rewrite(t.decl(), cs)
+
+    return {symbols.and_decl : rewrite, symbols.or_decl : rewrite}
+
+def make_vararg_ops_binary(expr):
+    """Turns conjunctions/disjunctions with more than two arguments into nested binary applications.
+
+    >>> make_vararg_ops_binary(z3.And(sl.list("a"), sl.list("b"), sl.list("c")))
+    And(sl.list(a), And(sl.list(b), sl.list(c)))
+
+    """
+    return rewriter.conditional_rewrite(expr, _make_vararg_ops_binary_rewriter())

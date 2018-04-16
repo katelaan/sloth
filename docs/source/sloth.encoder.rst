@@ -140,14 +140,6 @@ sloth.encoder.translation module
     :undoc-members:
     :show-inheritance:
 
-sloth.encoder.typing module
----------------------------
-
-.. automodule:: sloth.encoder.typing
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 sloth.encoder.utils module
 --------------------------
 
