@@ -64,6 +64,19 @@ class SlApi:
     >>> sl.submodel(sl.list.seg('a','b'))
     sl.submodel(sl.list.seg(a, b))
 
+    You can apply the separating conjunction to more than two
+    arguments. It will, however, be rewritten into binary
+    applications, because it's defined as a binary function in the SMT
+    solver:
+
+    >>> sl.sepcon(sl.list('x'), sl.list('y'), sl.list('z'))
+    sl.sepcon(sl.list(x), sl.sepcon(sl.list(y), sl.list(z)))
+    >>> sl.sepcon(*(sl.list(v) for v in 'abcdefgh'))
+    sl.sepcon(sl.sepcon(sl.sepcon(sl.list(a), sl.list(b)),
+                        sl.sepcon(sl.list(c), sl.list(d))),
+              sl.sepcon(sl.sepcon(sl.list(e), sl.list(f)),
+                        sl.sepcon(sl.list(g), sl.list(h))))
+
     We can also get the special data predicate variables to build data preds:
 
     >>> sl.alpha
@@ -112,7 +125,14 @@ class SlApi:
         for arg in args:
             assert isinstance(arg, z3.ExprRef), utils.wrong_type(arg)
         if len(args) > 0:
-            r = SlApi.sepcon(r, *args)
+            combined = (l,r) + args
+            half = len(combined) // 2
+            l, r = (combined[:half], combined[half:])
+            if len(l) > 1:
+                l = SlApi.sepcon(*l)
+            else:
+                l = l[0]
+            r = SlApi.sepcon(*r)
         return symbols.sep_con_fn(l, r)
 
 class StructApi:

@@ -56,25 +56,23 @@ def full_tree_fragment(root, stops, size, with_data = True, loc_prefix = 'a', da
     `with_data` flag (True by default).
 
     >>> t, u, v = sl.tree.locs('t u v'); full_tree_fragment(t, [], 2, with_data = False)
-    sl.sepcon(sl.tree.left(t, a1),
-              sl.sepcon(sl.tree.right(t, sl.tree.null),
-                        sl.sepcon(sl.tree.left(a1, sl.tree.null),
-                                  sl.tree.right(a1,
-                                            sl.tree.null))))
+    sl.sepcon(sl.sepcon(sl.tree.left(t, a1),
+                        sl.tree.right(t, sl.tree.null)),
+              sl.sepcon(sl.tree.left(a1, sl.tree.null),
+                        sl.tree.right(a1, sl.tree.null)))
     >>> full_tree_fragment(t, [u, v], 2, with_data = False)
-    sl.sepcon(sl.tree.left(t, a1),
-              sl.sepcon(sl.tree.right(t, u),
-                        sl.sepcon(sl.tree.left(a1, v),
-                                  sl.tree.right(a1,
-                                            sl.tree.null))))
+    sl.sepcon(sl.sepcon(sl.tree.left(t, a1),
+                        sl.tree.right(t, u)),
+              sl.sepcon(sl.tree.left(a1, v),
+                        sl.tree.right(a1, sl.tree.null)))
     >>> full_tree_fragment(t, [u, v], 2, with_data = True)
-    sl.sepcon(sl.tree.left(t, a1),
-              sl.sepcon(sl.tree.right(t, u),
-                        sl.sepcon(sl.tree.data(t, d0),
-                                  sl.sepcon(sl.tree.left(a1, v),
-                                            sl.sepcon(sl.tree.right(a1,
+    sl.sepcon(sl.sepcon(sl.tree.left(t, a1),
+                        sl.sepcon(sl.tree.right(t, u),
+                                  sl.tree.data(t, d0))),
+              sl.sepcon(sl.tree.left(a1, v),
+                        sl.sepcon(sl.tree.right(a1,
                                             sl.tree.null),
-                                            sl.tree.data(a1, d1))))))
+                                  sl.tree.data(a1, d1))))
 
     """
     loc_fmt = loc_prefix + '{}'
