@@ -144,8 +144,6 @@ class PredCall(SlAst):
         assert (fld is None) or isinstance(fld, str)
         assert (fld is None) or (pred is not None), \
                 'Data predicate field is set, but not the predicate itself'
-        # FIXME: This is incorrect -- there can be Boolean structure in the data predicate, in which case the following assertion fails!
-        assert (pred is None) or isinstance(pred, DataAtom), utils.wrong_type(pred)
         assert isinstance(root, ExprRef), \
             'Cannot use {} of type {} as data structure root'.format(root, type(root).__name__)
         self.struct = struct
@@ -175,7 +173,6 @@ class PredCall(SlAst):
         for n in self.stop_nodes:
             yield n
 
-
     @staticmethod
     def _is_template_var(x):
         sx = str(x)
@@ -183,11 +180,13 @@ class PredCall(SlAst):
 
     def data_consts(self):
         if self.pred is not None:
-            for d in z3utils.collect_consts(self.pred.atom):
-                #print('Considering yielding {}'.format(d))
-                if not PredCall._is_template_var(d):
-                    #print('Will yield const {}'.format(d))
-                    yield d
+            for data_atom in astutils.atoms(self.pred):
+                assert isinstance(data_atom, DataAtom), utils.wrong_type(data_atom)
+                for d in z3utils.collect_consts(data_atom.atom):
+                    #print('Considering yielding {}'.format(d))
+                    if not PredCall._is_template_var(d):
+                        #print('Will yield const {}'.format(d))
+                        yield d
 
     def __repr__(self):
         args = [self.struct.name, self.fld, self.pred, self.root] + self.stop_nodes
