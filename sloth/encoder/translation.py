@@ -168,6 +168,15 @@ Graph({0, 1, 2}, {(1, 'data'): ..., (1, 'next'): 2, (2, 'data'): ..., (2, 'next'
 >>> g.are_equal('x', 'data', 'd') and g.are_equal('y', 'data', 'e')
 True
 
+Using the same head twice implies the list is empty:
+
+>>> eval_(sl.sepcon(sl.list(x), sl.list(x)))
+Graph({0}, {}, {'sl.list.null': 0, 'x': 0})
+>>> eval_(sl.sepcon(sl.list.seg(x,y), sl.list.seg(x,y)))
+Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1, 'y': 1})
+>>> is_sat(sl.sepcon(sl.list.seg(x,y), sl.list.seg(x,y), sl.list.neq(x,y)))
+False
+
 List calls with data
 --------------------
 
@@ -186,7 +195,8 @@ True
 Binary (both x and y are allocated within the list, so the binary predicate must hold for the pair (d,e))
 
 >>> g = eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e), sl.list.pointsto(z,sl.list.null), sl.list.data(z,f)), sl.list.dpred.next(sl.alpha > 10*sl.beta, x)), override_bound = 4); g
-Graph({0, 1, 2, 3}, {(1, 'data'): ..., (1, 'next'): 2, (2, 'data'): ..., (2, 'next'): 3, (3, 'data'): ..., (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3}, {'d': ..., 'e': ..., 'f': ...})
+Graph({0, 1, 2, 3}, {(1onstraint we don't need to assert != null for every single pointer lhs
+, 'data'): ..., (1, 'next'): 2, (2, 'data'): ..., (2, 'next'): 3, (3, 'data'): ..., (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3}, {'d': ..., 'e': ..., 'f': ...})
 >>> all([g.are_equal('x', 'data', 'd'), g.are_equal('y', 'data', 'e'), g.are_equal('z', 'data', 'f')])
 True
 >>> g.data['d'] > 10 * g.data['e']
@@ -203,6 +213,12 @@ Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 
 Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 3})
 >>> eval_(sl.tree.dpred.unary2(sl.alpha == 99, t, u, v))
 Graph({0, 1, 2, 3}, {(1, 'data'): 99, (1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 3})
+>>> eval_(sl.sepcon(sl.tree(t), sl.tree(t)))
+Graph({0}, {}, {'sl.tree.null': 0, 't': 0})
+>>> is_sat(sl.sepcon(sl.tree(t), sl.tree.pointsto(t,u,v)))
+False
+>>> is_sat(sl.sepcon(sl.tree(t), sl.tree.left(t,u)))
+False
 
 Further tress tests with fixed (small) size bound enforced by
 classically conjoining allocation of three pointers:
