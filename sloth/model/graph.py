@@ -242,6 +242,30 @@ variable.
             data_str = ''
         return fmt.format(self.val, ptr_str, stack_str, data_str)
 
+    def has_ptr(self, src, fld, trg):
+        """Return True iff there is a `fld`-pointer between the vars `src` and `trg`.
+
+        >>> m1 = Graph({0, 1}, {(0, 'n'): 1}, {'x1': 0, 'x2': 1}); m1.has_ptr('x1', 'n', 'x2')
+        True
+        >>> m1.has_ptr('x1', 'p', 'x2') or m1.has_ptr('x2', 'n', 'x1')
+        False
+
+        """
+        try:
+            ptr_trg = self.ptr[(self.s[src], fld)]
+        except KeyError:
+            return False
+        else:
+            return ptr_trg == self.s[trg]
+
+    def all_named_ptrs(self, ignore_flds = [DATA_FLD]):
+        flds = self.ptr_flds().difference(ignore_flds)
+        for src in self.s:
+            for trg in self.s:
+                for fld in flds:
+                    if self.has_ptr(src, fld, trg):
+                        yield (src, fld, trg)
+
 def empty_graph(*vs):
     """Return a model without any pointers and with one location per var in `vs`.
 
