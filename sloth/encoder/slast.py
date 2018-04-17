@@ -62,7 +62,7 @@ def _rep(obj, args):
 class PointsTo(SlAst):
     """Representation of sl.struct.pointsto(src, trg_0,...trg_k).
 
-    >>> t = processed_ast(sl.structs, sl.tree.pointsto("a", "b", "c"))
+    >>> t = processed_ast([sl.tree.struct], sl.tree.pointsto("a", "b", "c"))
     >>> e.encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
     Encoding[...]
 
@@ -95,10 +95,10 @@ class PointsTo(SlAst):
 class PointsToSingleField(SlAst):
     """Representation of sl.struct.fld(src, trg).
 
-    >>> t = processed_ast(sl.structs, sl.list.next("a", "b"))
+    >>> t = processed_ast([sl.list.struct], sl.list.next("a", "b"))
     >>> e.encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
     Encoding[...]
-    >>> t = processed_ast(sl.structs, sl.list.data("a", "b"))
+    >>> t = processed_ast([sl.list.struct], sl.list.data("a", "b"))
     >>> e.encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
     Encoding[...]
 

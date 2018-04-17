@@ -33,6 +33,8 @@ and_decl = z3.And(True, True).decl()
 implies_decl = z3.Implies(True, True).decl()
 xor_decl = z3.Xor(True, True).decl()
 not_decl = z3.Not(True).decl()
+Z3True = z3.BoolVal(True)
+Z3False = z3.BoolVal(False)
 
 def LAnd(ls):
     """Smart conjunction over a sequence of :class:`z3.ExprRef`.

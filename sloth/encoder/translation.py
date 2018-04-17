@@ -195,8 +195,7 @@ True
 Binary (both x and y are allocated within the list, so the binary predicate must hold for the pair (d,e))
 
 >>> g = eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d), sl.list.pointsto(y,z), sl.list.data(y,e), sl.list.pointsto(z,sl.list.null), sl.list.data(z,f)), sl.list.dpred.next(sl.alpha > 10*sl.beta, x)), override_bound = 4); g
-Graph({0, 1, 2, 3}, {(1onstraint we don't need to assert != null for every single pointer lhs
-, 'data'): ..., (1, 'next'): 2, (2, 'data'): ..., (2, 'next'): 3, (3, 'data'): ..., (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3}, {'d': ..., 'e': ..., 'f': ...})
+Graph({0, 1, 2, 3}, {(1, 'data'): ..., (1, 'next'): 2, (2, 'data'): ..., (2, 'next'): 3, (3, 'data'): ..., (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3}, {'d': ..., 'e': ..., 'f': ...})
 >>> all([g.are_equal('x', 'data', 'd'), g.are_equal('y', 'data', 'e'), g.are_equal('z', 'data', 'f')])
 True
 >>> g.data['d'] > 10 * g.data['e']
@@ -284,22 +283,20 @@ def as_split_constraints(A, B, ast, fresh = None):
     return shared.SplitEnc(A, B, fresh)
 
 def encode_ast(config, ast):
-    # TODO: Make 'X' into a constant (see also use below as well as in the conversion of models to graphs)
-    X = shared.FPVector(config.fp_sort, 'X', config.flds)
     config.next_fp_ix = 0 # Reset the next free FP id to 0 for consistent naming
+    X = config.global_symbols.X_vec()
     A, B, Z = encode_boolean(config, X, ast)
     A = c.And(A, description = '***** A *****')
     B = c.And(B, description = '***** B *****')
     cs = [A,B]
-    if config.global_encoder_fn is not None:
-        cs.append(config.global_encoder_fn())
+    cs.append(config.global_constraint())
     consts = astutils.consts_by_struct(ast)
     dconsts = astutils.data_consts(ast)
     heap_funs = itertools.chain(*(s.heap_fns() for s in config.structs))
     nulls = [struct.null for struct in config.structs]
     decls = set(itertools.chain(Z,
-                                X.all_fps(),
-                                [config.fp_sort['X']],
+                                X.all_fps(), # X_f for all fields f
+                                [config.global_symbols.X()], # Union of X_f
                                 *consts.values(),
                                 dconsts,
                                 nulls,
@@ -331,10 +328,7 @@ def encode_spatial(config, ast, Y):
     if type_ == slast.SepCon:
         return encode_sepcon(config, ast, Y)
     elif type_ == slast.PredCall:
-        if config.encode_call_fn is None:
-            raise utils.SlothException('No call encoder specified')
-        else:
-            return config.encode_call_fn(config, ast, Y)
+        return config.encode_call(ast, Y)
     elif type_ == slast.DataAtom:
         return encode_data_atom(ast, Y)
     elif type_ == slast.PointsTo:
