@@ -193,7 +193,7 @@ def paper_size_bounds(ast):
     return bound_by_struct
 
 def _process_struct_consts(struct, consts):
-    logger.info("Have the following {} vars: {}".format(struct.name, consts))
+    logger.debug("Have the following {} vars: {}".format(struct.name, consts))
     var_count = len(consts)
     if any(z3.eq(v, struct.null) for v in consts):
         logger.info("Will not count null.")

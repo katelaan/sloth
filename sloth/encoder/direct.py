@@ -128,19 +128,16 @@ class DirectEncoding:
 
         >>> print(de.is_stop_node(de.sort['x']))
         ;; x is a stop node
-        (Or
-          (x == sl.tree.null)
-          (x == u)
-          (x == v)
-        )
+        (Or(x == sl.tree.null, x == u, x == v))
 
         """
-        cs = c.ConstraintList()
-        cs.append_expr(x == self.null)
-        for stop in self.pred_call.stop_nodes:
-            cs.append_expr(x == stop)
-        desc = '{} is a stop node'
-        return cs.to_disjunction(description = desc.format(x))
+        desc = '{} is a stop node'.format(x)
+        exprs = [
+            x == stop
+            for stop in (self.null,*self.pred_call.stop_nodes)
+        ]
+        return c.as_constraint(symbols.LOr(exprs),
+                               description = desc)
 
     def S(self, x, y):
         """Successor relation for `x` and `y`.
@@ -177,11 +174,7 @@ class DirectEncoding:
               (Z[x0])
               (Not
                 ;; x1 is a stop node
-                (Or
-                  (x1 == sl.tree.null)
-                  (x1 == u)
-                  (x1 == v)
-                )
+                (Or(x1 == sl.tree.null, x1 == u, x1 == v))
               )
               ;; x1 is a ['left', 'right']-successor of x0
               (Or
@@ -305,16 +298,23 @@ class DirectEncoding:
             c.Implies(self.is_stop_node(root), Z.is_empty(),
                       description = 'If the root is a stop node, {} is empty'.format(Z))
         )
+        # If Z is non-empty, it contains the root
+        # cs.append_constraint(
+        #     c.Implies(z3.Not(Z.is_empty()),
+        #               Z.contains(root))
+        # )
         # If the root isn't a stop node, it's in Z
         cs.append_constraint(
-            c.Implies(c.Not(self.is_stop_node(root)), Z.contains(root),
+            c.Implies(c.Not(self.is_stop_node(root)),
+                      Z.contains(root),
                       description = "If the root isn't a stop node, {} contains the root".format(Z))
         )
 
         exprs = (
             c.Iff(
                 Z.contains(x_i),
-                z3.Or(root == x_i, self.r(n)(root, x_i))
+                z3.Or(root == x_i,
+                      self.r(n)(root, x_i))
             )
             for x_i in self.xs()
         )
@@ -781,10 +781,14 @@ class DirectEncoding:
             try:
                 stop = stops[0]
             except:
-                stop = struct.null
+                # If there is no stop node, we don't have to demand
+                # that the root is allocated / equal to null. It's a
+                # consequence of the other constraints.
+                pass
+                #stop = struct.null
             else:
                 cs_a.append(self.node_occurs(stop))
-            cs_a.append(self.root_alloced_or_node(stop))
+                cs_a.append(self.root_alloced_or_node(stop))
         if preds is not None:
             cs_a.append(self.data_preds_hold(preds))
         A = c.from_list(cs_a).to_conjunction(description = 'Structural encoding of list({}, {}) of size {} with data constraints {}'.format(root, stops, self.n, preds))

@@ -101,12 +101,15 @@ def preprocess(io_config, solver_config):
 def solve(solver_config, parsed):
     "Encapsulates the solution process."
     if parsed is not None:
+        print('Internal representation:\n{}'.format(parsed))
         if solver_config.encoder == config.EncoderEnum.Direct:
+            print('Using direct encoding.')
             encoding = api.encode(parsed)
             model = api.model(encoding)
             s = z3api.Solver()
             result_state = enc_utils.ResultState(s, model, encoding)
         elif solver_config.encoder == config.EncoderEnum.Exponential:
+            print('Using unfolding encoding.')
             result_state = strategy.decide(solver_config.structs,
                                            parsed,
                                            solver_config.override_bound)

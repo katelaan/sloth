@@ -19,9 +19,9 @@ Backend: Integer locations & lambdas.
 
 You can either parse input or build input expressions by hand:
 
->>> parse("../benchmarks/list-symbolic-heaps/list.smt2")
+>>> parse('../benchmarks/list-symbolic-heaps/list.smt2')
 ParseResult(expr=sl.list(a), backend=Integer locations & lambdas)
->>> sl.list("a")
+>>> sl.list('a')
 sl.list(a)
 
 See the documentation of :class:`sloth.slapi.SlApi` for more examples of
@@ -30,9 +30,9 @@ manually built expressions.
 Given a parse result or an expression, you can run encoding, solving,
 model generation, etc.
 
->>> is_sat(sl.list("a"))
+>>> is_sat(sl.list('a'))
 True
->>> encoding = encode(sl.list.pointsto("a","b"))
+>>> encoding = encode(sl.list.pointsto('a', 'b'))
 >>> encoding.to_z3_expr() # doctest: +ELLIPSIS
 And(...)
 >>> is_sat_encoding(encoding)
@@ -41,21 +41,17 @@ True
 Model [...]
 >>> stats(model(encoding)) # doctest: +ELLIPSIS
 Model: ...
->>> solve(sl.list("a"))
+>>> solve(sl.list('a'))
 Model [...]
 
 In addition there are various methods to help you find and interact with benchmarks:
 
 >>> all_benchmarks() # doctest: +ELLIPSIS
 ['../benchmarks/...]
->>> find_benchmarks("list", "seg") # doctest: +ELLIPSIS
-['../benchmarks/list-boolean-closure/list-not-list-segs.smt2', '../benchmarks/list-boolean-closure/unsat-list-segs-not-list.smt2', ...]
->>> benchmark("unsat", "list", "seg")
+>>> find_benchmarks('list', 'seg') # doctest: +ELLIPSIS
+['../benchmarks/list-boolean-closure/unsat-list-not-list-segs.smt2', '../benchmarks/list-boolean-closure/unsat-list-segs-not-list.smt2', ...]
+>>> benchmark('unsat', 'segs-not-list')
 '../benchmarks/list-boolean-closure/unsat-list-segs-not-list.smt2'
-
-Assuming there is just one benchmark whose filename contains both
-"list" and "seg", the previous two function calls will return a
-singleton list with the filename and the filename, respectively.
 
 """
 

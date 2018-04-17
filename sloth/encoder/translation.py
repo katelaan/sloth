@@ -173,8 +173,8 @@ Multiple list calls
 
 Using the same head twice implies the list is empty:
 
->>> eval_(sl.sepcon(sl.list(x), sl.list(x)))
-Graph({0}, {}, {'sl.list.null': 0, 'x': 0})
+>>> is_in(eval_(sl.sepcon(sl.list(x), sl.list(x))), [Graph({0}, {}, {'sl.list.null': 0, 'x': 0}), Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1})])
+True
 >>> eval_(sl.sepcon(sl.list.seg(x,y), sl.list.seg(x,y)))
 Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1, 'y': 1})
 >>> is_sat(sl.sepcon(sl.list.seg(x,y), sl.list.seg(x,y), sl.list.neq(x,y)))
@@ -186,6 +186,11 @@ Using different heads leads to separate structures:
 a1 -[next]-> sl.list.null, b1 -[next]-> sl.list.null, x -[next]-> a1, y -[next]-> b1
 >>> g = eval_(sl.sepcon(list_ptr_seq(x, sl.list.null, 2), list_ptr_seq(y, sl.list.null, 2, loc_prefix='b', data_prefix='e'), list_ptr_seq(z, sl.list.null, 2, loc_prefix='c', data_prefix='f'))); print_all_named_ptrs(g)
 a1 -[next]-> sl.list.null, b1 -[next]-> sl.list.null, c1 -[next]-> sl.list.null, x -[next]-> a1, y -[next]-> b1, z -[next]-> c1
+
+With negation:
+
+>>> is_sat(z3.And(sl.list(x), z3.Not(sl.sepcon(sl.list.seg(x,y), sl.list(y)))))
+False
 
 List calls with data
 --------------------
@@ -222,8 +227,8 @@ Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 
 Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 3})
 >>> eval_(sl.tree.dpred.unary2(sl.alpha == 99, t, u, v))
 Graph({0, 1, 2, 3}, {(1, 'data'): 99, (1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 3})
->>> eval_(sl.sepcon(sl.tree(t), sl.tree(t)))
-Graph({0}, {}, {'sl.tree.null': 0, 't': 0})
+>>> is_in(eval_(sl.sepcon(sl.tree(t), sl.tree(t))), [Graph({0}, {}, {'sl.tree.null': 0, 't': 0}), Graph({0, 1}, {}, {'sl.tree.null': 0, 't': 1})])
+True
 >>> is_sat(sl.sepcon(sl.tree(t), sl.tree.pointsto(t,u,v)))
 False
 >>> is_sat(sl.sepcon(sl.tree(t), sl.tree.left(t,u)))
