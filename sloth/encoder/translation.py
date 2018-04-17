@@ -122,14 +122,14 @@ data interpretation is consistent with the constraints that are there.
 
 >>> is_in(eval_(sl.list(x)), (Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1}), Graph({0}, {}, {'sl.list.null': 0, 'x': 0}), Graph({0, 1, 2}, {(1, 'next'): 2, (2, 'next'): 0}, {'sl.list.null': 0, 'x': 1})))
 True
->>> eval_(sl.list.seg(x, y))
-Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1, 'y': 1})
+>>> is_in(eval_(sl.list.seg(x, y)), [Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1, 'y': 1}), Graph({0, 1, 2}, {(1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2})])
+True
 >>> eval_(z3.And(sl.list.seg(x, y), sl.list.eq(x, sl.list.null)))
 Graph({0}, {}, {'sl.list.null': 0, 'x': 0, 'y': 0})
 >>> is_in(eval_(z3.And(sl.list.seg(x, y), z3.Not(sl.list.eq(x, sl.list.null)), z3.Not(sl.list.eq(x, y)))), (Graph({0, 1, 2}, {(1, 'next'): 2}, {'sl.list.null': 0, 'x': 1, 'y': 2}), Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3}, {'sl.list.null': 0, 'x': 1, 'y': 3})))
 True
->>> eval_(sl.list.seg(x, sl.list.null))
-Graph({0}, {}, {'sl.list.null': 0, 'x': 0})
+>>> is_in(eval_(sl.list.seg(x, sl.list.null)), [Graph({0}, {}, {'sl.list.null': 0, 'x': 0}), Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1})])
+True
 >>> eval_(sl.sepcon(sl.list.seg(x, sl.list.null), sl.list.neq(x, sl.list.null)))
 Graph({0, 1}, {(1, 'next'): 0}, {'sl.list.null': 0, 'x': 1})
 >>> g = eval_(z3.And(sl.sepcon(sl.list.pointsto(x,y), sl.list.data(x,d)), sl.list(x))); g
@@ -270,6 +270,9 @@ True
 Unsat calls
 -----------
 
+>>> is_sat(z3.And(sl.list(x), z3.Not(sl.list(x))))
+False
+
 Equal stop nodes:
 
 >>> is_sat(sl.sepcon(sl.tree.seg2(t, u, v), sl.tree.neq(u, sl.tree.null), sl.tree.neq(v, sl.tree.null), sl.tree.eq(u, v)))
@@ -356,11 +359,13 @@ def encode_boolean(config, X, ast):
         return encode_not(config, X, ast)
     else:
         Y = config.get_fresh_fpvector()
-        A1, B, Z1 = encode_spatial(config, ast, Y)
+        A, B, Z1 = encode_spatial(config, ast, Y)
         connection = c.And(*all_equal(Y, X),
                            description = 'Connecting spatial formula to global constraint')
-        A = c.And(A1, connection,
+        A = c.And(A, connection,
                   description = 'Placing {} in the global context'.format(serialization.expr_to_smt2_string(ast.to_sl_expr(), multi_line = False)))
+        # B = c.And(B, connection,
+        #           description = 'Placing {} in the global context'.format(serialization.expr_to_smt2_string(ast.to_sl_expr(), multi_line = False)))
         Z = Z1.union(Y.all_fps())
         return shared.SplitEnc(A, B, Z)
 

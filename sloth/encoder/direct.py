@@ -284,7 +284,9 @@ class DirectEncoding:
           ...
           ;; If the root is a stop node, Z : SET(Int) is empty
           ...
-          ;; Everything in Z : SET(Int) is reachable from the root t
+          ;; If the root isn't a stop node, Z : SET(Int) contains the root
+          ...
+          ;; If the root is allocated, Z contains exactly what's reachable from the root
           ...
         )
 
@@ -297,21 +299,32 @@ class DirectEncoding:
         cs = c.ConstraintList()
         # Footprint Z contains only the n allowed locations
         cs.append_expr(Z.subset_of(self.xs_set()),
-                       description = '{} is a subset of {{{},...,{}}}'.format(Z, self.x(0), self.x(n-1)))
+                       description = '{} is a subset of {{{},...,{}}}'.format(Z, self.x(0), self.x(n - 1)))
         # If the root is a stop node, Z is empty
         cs.append_constraint(
             c.Implies(self.is_stop_node(root), Z.is_empty(),
                       description = 'If the root is a stop node, {} is empty'.format(Z))
         )
-        # If the root isn't a stop node, all nodes in Z are reachable from the root
-        exprs = [
-            c.Implies(Z.contains(x_i), z3.Or(x_i == root, self.r(n)(root, x_i)))
-            for x_i in self.xs()
-        ]
-        reach_cs = c.from_list(exprs)
+        # If the root isn't a stop node, it's in Z
         cs.append_constraint(
-            reach_cs.to_conjunction(description = 'Everything in {} is reachable from the root {}'.format(Z, root))
+            c.Implies(c.Not(self.is_stop_node(root)), Z.contains(root),
+                      description = "If the root isn't a stop node, {} contains the root".format(Z))
         )
+
+        exprs = (
+            c.Iff(
+                Z.contains(x_i),
+                z3.Or(root == x_i, self.r(n)(root, x_i))
+            )
+            for x_i in self.xs()
+        )
+
+        cs.append_constraint(
+            c.Implies(c.Not(self.is_stop_node(root)),
+                      c.And(*exprs,
+                            description = 'Everything in {} is reachable from the root {}'.format(Z, root)),
+                      description = "If the root is allocated, Z contains exactly what's reachable from the root"))
+
 
         return cs.to_conjunction(description = 'Define the footprint set {} for root {} and nodes {},...,{}'.format(Z, root, self.x(0), self.x(n-1)))
 
@@ -729,12 +742,19 @@ class DirectEncoding:
         root = self.pred_call.root
         stops = self.pred_call.stop_nodes
         other_structs = [s for s in self.all_structs if s is not struct]
-        exprs = (z3.Not(self.X(fld).contains(v))
+        exprs = [z3.Not(self.X(fld).contains(v))
                  for os in other_structs
                  for fld in os.structural_fields
-                 for v in (root, *stops))
+                 for v in (root, *stops)]
+        if not exprs:
+            exprs = [symbols.Z3True]
         return c.And(*exprs,
                      description = "The root {} and stop points {} aren't allocated in other structs".format(root, stops))
+
+    def root_maps_onto_aux_vars(self):
+        return c.as_constraint(
+            self.xs_set().contains(self.pred_call.root),
+            description = 'The predicate root is among {}...{}'.format(self.x(0), self.x(self.n - 1)))
 
     def struct_encoding(self, Y):
         assert isinstance(Y, shared.FPVector), utils.wrong_type(Y)
@@ -747,7 +767,8 @@ class DirectEncoding:
             preds = shared.DataPreds((call.fld, call.pred))
         else:
             preds = None
-        cs_a = [self.is_struct_footprint(Y),
+        cs_a = [# Note: Moved this into the B part to disallow trivial solutions of negation
+                #self.is_struct_footprint(Y),
                 self.is_acyclic(),
                 self.all_leaves_are_stop_nodes(),
                 self.is_well_typed()
@@ -768,7 +789,10 @@ class DirectEncoding:
             cs_a.append(self.data_preds_hold(preds))
         A = c.from_list(cs_a).to_conjunction(description = 'Structural encoding of list({}, {}) of size {} with data constraints {}'.format(root, stops, self.n, preds))
         cs_b = [self.reach(),
-                self.defn()
+                self.defn(),
+                # Note: In the paper, this is in the A part
+                self.is_struct_footprint(Y),
+                self.root_maps_onto_aux_vars()
         ]
         B = c.from_list(cs_b).to_conjunction(description = 'Footprint encoding of list({}, {}) of size {}'.format(root, stops, self.n, preds))
         fresh_decls = set(itertools.chain([Z],
