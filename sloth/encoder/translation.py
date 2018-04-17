@@ -337,7 +337,7 @@ def encode_ast(config, ast):
     nulls = [struct.null for struct in config.structs]
     decls = set(itertools.chain(Z,
                                 X.all_fps(), # X_f for all fields f
-                                [config.global_symbols.X()], # Union of X_f
+                                [config.global_symbols.X()] if config.structs else [], # Union of X_f (if there's any structure)
                                 *consts.values(),
                                 dconsts,
                                 nulls,

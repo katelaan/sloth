@@ -48,6 +48,9 @@ def encode_sl_expr(sl, sl_expr, override_bound = None):
     if contains_call:
         config.global_encoder_fn = direct.is_bounded_heap_interpretation
         config.encode_call_fn = direct.call_encoding
+    if not structs:
+        # Deal with the corner case that there are no spatial assertions
+        config.global_encoder_fn = None
 
     return translation.encode_ast(config, ast)
 
