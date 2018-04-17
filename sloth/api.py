@@ -255,7 +255,7 @@ def model(input, override_bound = None):
                                          input.all_consts(),
                                          input.structs)
         except z3.Z3Exception as e:
-            raise ApiException("No model available")
+            return None
     else:
         return solve(input, override_bound)
 

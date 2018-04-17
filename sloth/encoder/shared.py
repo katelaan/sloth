@@ -4,6 +4,7 @@ import operator
 import z3
 
 from ..backend import generic
+from . import astutils
 from . import slast
 
 SplitEnc = collections.namedtuple('SplitEnc', 'A B Z')
@@ -54,13 +55,11 @@ class DataPreds:
                 fld, pred = pred
             except TypeError:
                 fld = None
-            #assert isinstance(pred, z3.ExprRef), \
-            assert isinstance(pred, slast.DataAtom), \
-                    'Not a data predicate: {}'.format(pred)
+            expr = astutils.predicate_to_z3_expr(pred)
             if fld is None:
-                self.unary.append(pred.atom)
+                self.unary.append(expr)
             else:
-                self.binary.setdefault(fld, []).append(pred.atom)
+                self.binary.setdefault(fld, []).append(expr)
 
     def __iter__(self):
         yield from self.unary

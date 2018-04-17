@@ -1,17 +1,19 @@
+# coding: utf-8
+
 import sys
 import traceback
 
-from .. import config, consts, wrapper, z3api
+from .. import api, config, consts, wrapper, z3api
 from ..model import model
 from ..utils import timing, utils
 from . import defaults
 
 SUCCESS = None
-BENCHMARK_DEPTH = 20
+BENCHMARK_BOUND = 20
 SKIP_BUGS = True
 # TODO: Maybe allow encoding some expectations as comments in the benchmark files, e.g. about the minimum number of locations?
 
-def _configure_and_execute(file, backend):
+def _configure_and_execute(file, encoder):
     # Reset z3
     z3api.Solver().reset()
     # TODO: Set loglevel to error
@@ -21,12 +23,9 @@ def _configure_and_execute(file, backend):
     io_config.print_stats = False
     io_config.propagate_all_exceptions = True
     solver_config = config.SolverConfig()
-    solver_config.max_depth = BENCHMARK_DEPTH
-    solver_config.backend = backend
-    if backend == consts.LAMBDA_BACKEND:
-        solver_config.structs = defaults.predef_lambda_structs
-    else:
-        solver_config.structs = defaults.predef_structs
+    #solver_config.override_bound = BENCHMARK_BOUND
+    solver_config.encoder = encoder
+    solver_config.structs = api.sl.structs
     print("Will now run solver on " + file)
     return wrapper.run(io_config, solver_config, batch_mode = True)
 
@@ -90,17 +89,18 @@ if __name__ == "__main__":
         dir_whitelist = None
 
     benchmarks = utils.collect_smt2_files(config.BENCHMARK_PATH, dir_whitelist)
-    results = [run_benchmark(b, backend)
+    results = [run_benchmark(b, encoder)
                for b in benchmarks
-               #for backend in [consts.QUANTIFIED_BACKEND, consts.LAMBDA_BACKEND]
-               for backend in [consts.LAMBDA_BACKEND]
+               for encoder in [config.EncoderEnum.Direct]
+               #for encoder in [config.EncoderEnum.Exponential]
+               #for encoder in [config.EncoderEnum.Direct, config.EncoderEnum.Exponential]
                if not SKIP_BUGS or consts.BM_EXPECT_BUG not in b]
     errs = tuple(filter(lambda b : b is not None, results))
     num_errs = len(errs)
 
     timing.print_solver_stats()
     print("Passed {}/{} benchmarks".format(len(results) - len(errs), len(results)))
-    print("Limit for unfolding depth used: {}".format(BENCHMARK_DEPTH))
+    #print("Limit for unfolding depth used: {}".format(BENCHMARK_BOUND))
 
     if num_errs > 0:
         print("Failed benchmarks: {}".format(errs))

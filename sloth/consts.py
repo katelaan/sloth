@@ -31,6 +31,10 @@ LIST_PRED = "list"
 DLIST_PRED = "dlist"
 PTREE_PRED = "ptree"
 
+# Encoders
+DIRECT_ENCODER = 'direct'
+EXPONENTIAL_ENCODER = 'exponential'
+
 # Backends
 QUANTIFIED_BACKEND = "quantified"
 LAMBDA_BACKEND = "lambdas"

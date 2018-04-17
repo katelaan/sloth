@@ -61,11 +61,15 @@ class EncoderConfig:
         self.structs = list(sorted(bounds_by_struct, key = lambda s: s.name))
         # From set to avoid duplicate fields (data occurs in every struct!)
         self.flds = list(sorted({f for s in self.structs for f in s.fields}))
-        if self.structs[0].fp_sort != self.structs[-1].fp_sort:
-            # To ensure this crashes early with the quantified backend
-            raise utils.SlothException("Can't use encoder config with quantified backend.")
-        self.sort = self.structs[0].sort
-        self.fp_sort = self.structs[0].fp_sort
+        if self.structs:
+            if self.structs[0].fp_sort != self.structs[-1].fp_sort:
+                # To ensure this crashes early with the quantified backend
+                raise utils.SlothException("Can't use encoder config with quantified backend.")
+            self.sort = self.structs[0].sort
+            self.fp_sort = self.structs[0].fp_sort
+        else:
+            self.sort = None
+            self.fp_sort = None
         self.encode_call_fn = encode_call_fn
         self.global_encoder_fn = global_encoder_fn
         self.bounds_by_struct = bounds_by_struct
@@ -131,7 +135,7 @@ class GlobalSymbols:
 
     def __init__(self, config):
         self.sort = config.sort
-        self.fp_sort = self.sort.set_sort()
+        self.fp_sort = config.fp_sort
         self.n = sum(config.bounds_by_struct.values())
         # TODO: Make 'X' into a constant (see also use below as well as in the conversion of models to graphs)
         self._X = shared.FPVector(self.fp_sort,

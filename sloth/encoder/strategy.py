@@ -222,7 +222,7 @@ def solve_by_unfolding_strategy(structs, expr, external_depth_bound, strategy = 
     consts_by_struct = astutils.consts_by_struct(ast)
     bound = compute_depth_bound(consts_by_struct, pred_calls)
     logger.info("Computed unfolding bound {}".format(bound))
-    if bound > external_depth_bound:
+    if external_depth_bound is not None and bound > external_depth_bound:
         logger.info("Overriding with external depth bound {}".format(external_depth_bound))
         bound = external_depth_bound
 

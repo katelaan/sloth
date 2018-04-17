@@ -32,15 +32,15 @@ class Event:
         self.kwargs = kwargs
 
     def __repr__(self):
-        kws = ", ".join(["{} = {}".format(*i) for i in self.kwargs.items()])
-        if kws: kws = ", "+kws
-        return "Event({}, {}{})".format(self.timestamp, self.event_type, kws)
+        kws = ', '.join(['{} = {}'.format(*i) for i in self.kwargs.items()])
+        if kws: kws = ', '+kws
+        return 'Event({}, {}{})'.format(self.timestamp, self.event_type, kws)
 
     def __getattr__(self, name):
         try:
             return self.kwargs[name]
         except KeyError:
-            raise UndefinedMetaAccess("Access of undefined event attribute " + name)
+            raise UndefinedMetaAccess('Access of undefined event attribute ' + name)
 
 
 class EventLog:
@@ -79,8 +79,8 @@ def _time_if_type(event, type_):
 def eval_stats(ls):
     assert(ls[0].event_type == EventType.Start)
     start = ls[0]
-    status = "?"
-    mark = ""
+    status = '?'
+    mark = ''
     work_list = ls[1:]
     num_calls = 0
     start_time = start.timestamp
@@ -97,42 +97,42 @@ def eval_stats(ls):
         if not any(t is None for t in times):
             num_calls += 1
             smt_call_time = times[2] - times[1]
-            print("SMT call took {}".format(smt_call_time))
+            print('SMT call took {}'.format(smt_call_time))
             smt_time += smt_call_time
             end_time = times[3]
         work_list = work_list[4:]
     while work_list:
         if work_list[0].event_type == EventType.Error:
-            status = "ERR"
+            status = 'ERR'
         elif work_list[0].event_type == EventType.Sat:
-            status = "SAT"
+            status = 'SAT'
         elif work_list[0].event_type == EventType.Unsat:
-            status = "UNSAT"
+            status = 'UNSAT'
         elif work_list[0].event_type == EventType.Mark:
             mark = work_list[0].mark
         work_list = work_list[1:]
 
     if end_time is None:
-        total_time = "n/a"
+        total_time = 'n/a'
     else:
-        total_time = "{:10.4f}".format(end_time - start_time)
+        total_time = '{:10.4f}'.format(end_time - start_time)
     if smt_time == 0:
-        smt_time = "n/a"
+        smt_time = 'n/a'
     else:
-        smt_time = "{:8.4f}".format(smt_time)
+        smt_time = '{:8.4f}'.format(smt_time)
 
     return [start.benchmark,
-            start.backend,
+            start.encoder,
             total_time,
             smt_time,
-            "{:10d}".format(num_calls),
-            "{:>6}".format(status),
+            '{:10d}'.format(num_calls),
+            '{:>6}'.format(status),
             mark]
 
 def print_solver_stats():
     stats = list(process_events(eval_stats))
-    headings = ["Benchmark", "Backend", "Total time", "Smt time", "#Smt calls", "Status", "Failed"]
-    if utils.seq_exists(lambda e : e[-1] != "", stats):
+    headings = ['Benchmark', 'Encoder', 'Total time', 'Smt time', '#Smt calls', 'Status', 'Failed']
+    if utils.seq_exists(lambda e : e[-1] != '', stats):
         last = len(headings)
     else:
         last = -1
@@ -143,8 +143,8 @@ def print_solver_stats():
             maxlens[i] = max(maxlens[i], len(s))
     maxlens = maxlens[:last]
     #return str(timedelta(seconds=elapsed))
-    field_formats = ["{:"+str(l)+"}" for l in maxlens]
-    format_string = " | ".join(field_formats)
+    field_formats = ['{:'+str(l)+'}' for l in maxlens]
+    format_string = ' | '.join(field_formats)
 
     print(format_string.format(*headings))
     for stat in stats:

@@ -1,10 +1,16 @@
 """Provides high-level access to the solver via the :func:`run` function.
 """
 
+import sys
+
+from . import api
 from . import config
-from . import slparser, serialization
+from . import serialization
+from . import slparser
+from . import z3api
 from .backend import struct
 from .encoder import strategy
+from .encoder import utils as enc_utils
 from .model import model
 from .utils import logger, timing, utils
 
@@ -13,7 +19,7 @@ from .utils import logger, timing, utils
 ###############################################################################
 
 def parse_sl(input_file, structs):
-    """Parses the file of the given name into an expression reference."""
+    "Parses the file of the given name into an expression reference."
     try:
         with open(input_file, "r") as f:
             content = f.read()
@@ -24,35 +30,32 @@ def parse_sl(input_file, structs):
         return slparser.parse_sl(content, structs)
 
 def show_result(model, structs):
-    """Print information/statistics about the model"""
-    print("Model: {}".format(model))
-    loc_counts = ("|{}|={}".format(s.predicate(), len(model.struct_model(s)))
+    "Print information/statistics about the model."
+    print('Model: {}'.format(model))
+    loc_counts = ('|{}|={}'.format(s.predicate(), len(model.struct_model(s)))
                   for s in model.structs
                   if bool(model.struct_model(s)))
-    print("Sort cardinalities: {}".format(', '.join(loc_counts)))
-    print("Variables/constants per sort:")
+    print('Sort cardinalities: {}'.format(', '.join(loc_counts)))
+    print('Variables/constants per sort:')
     for s in model.structs:
         if bool(model.struct_model(s)):
-            print("  {}: {}".format(s.name, model.struct_model(s).loc_consts()))
-            #print("  {}: {}".format(s.name, model.struct_model(s).fp_consts()))
-    print("Variables/constants by location:")
+            print('  {}: {}'.format(s.name, model.struct_model(s).loc_consts()))
+            #print('  {}: {}'.format(s.name, model.struct_model(s).fp_consts()))
+    print('Variables/constants by location:')
     sorted_locs = sorted((int(str(k.loc)), v) for (k,v) in model.node_labeling.items())
     for k,v in sorted_locs:
         if v:
-            print("  {}: {}".format(k, v))
-    # for key in model.node_labeling:
-    #     if model.node_labeling[key]:
-    #         print("  {}: {}".format(key.loc, model.node_labeling[key]))
+            print('  {}: {}'.format(k, v))
 
 def plot_result(model, draw_isolated_nodes = True):
-    """Plot the given model using igraph"""
+    "Plot the given model using igraph."
     try:
         # Import down here so that the tool works without igraph
         # (if plotting is disabled)
         from .model import plotter
     except ImportError as e:
-        print("Could not initialize model plotting: " + str(e))
-        print("Have you installed pycairo and python-igraph?")
+        print('Could not initialize model plotting: ' + str(e))
+        print('Have you installed pycairo and python-igraph?')
     else:
         plotter.plot_model(model, draw_isolated_nodes)
 
@@ -63,18 +66,15 @@ def dump_encodings(io_config, solver_config, parsed, result_encoding):
     or all encodings up to the configured depth bound.
 
     """
-    depth = io_config.dump_til_depth
-    force_depth = solver_config.force_depth
     structs = solver_config.structs
-
-    assert(depth >= 0)
-    if depth == 0:
-        file = config.ENCODING_FILE_PREFIX + ".smt2"
-        logger.info("Writing SMTLIB2 encoding to file {}".format(file))
+    file_ = config.ENCODING_FILE_PREFIX + '.smt2'
+    logger.info('Writing SMTLIB2 encoding to file {}'.format(file_))
+    try:
+        result_encoding.to_file(file_)
+    except:
+        assert isinstance(result_encoding, z3.ExprRef), utils.wrong_type(result_encoding)
         serialization.write_encoding_to_file(file, result_encoding, structs)
-    else:
-        logger.info("Will write all unfoldings up to depth {} to files {}*.smt2".format(depth, config.ENCODING_FILE_PREFIX))
-        raise NotImplementedError("Dumping of all encodings no longer supported")
+
 
 ###############################################################################
 # Main solution process
@@ -87,25 +87,34 @@ def preprocess(io_config, solver_config):
     if io_config.print_symbol_table:
         struct.print_sl_summary(solver_config.structs)
     logger.info("Will solve SL query in '{}'".format(io_config.input_file))
-    parsed, max_depth = parse_sl(io_config.input_file, solver_config.structs)
+    parsed, override_bound = parse_sl(io_config.input_file, solver_config.structs)
     if parsed is not None:
-        logger.debug("Parse result:\n".format(parsed))
+        logger.debug('Parse result:\n'.format(parsed))
     else:
-        raise utils.SlothException("Parser error")
-    if max_depth is not None:
-        print("Found depth bound in input file: {}".format(max_depth))
-        print("Will restrict max depth to {}".format(max_depth))
-        solver_config.max_depth = max_depth
+        raise utils.SlothException('Parser error')
+    if override_bound is not None:
+        print('Found size bound in input file: {}'.format(override_bound))
+        print('Will restrict model size to {}'.format(override_bound))
+        solver_config.override_bound = override_bound
     return parsed
 
 def solve(solver_config, parsed):
-    """Encapsulates the solution process."""
+    "Encapsulates the solution process."
     if parsed is not None:
-        result_state = strategy.decide(solver_config.structs,
-                                       parsed,
-                                       solver_config.max_depth)
+        if solver_config.encoder == config.EncoderEnum.Direct:
+            encoding = api.encode(parsed)
+            model = api.model(encoding)
+            s = z3api.Solver()
+            result_state = enc_utils.ResultState(s, model, encoding)
+        elif solver_config.encoder == config.EncoderEnum.Exponential:
+            result_state = strategy.decide(solver_config.structs,
+                                           parsed,
+                                           solver_config.override_bound)
+        else:
+            print('No encoder specified.')
+            sys.exit(1)
         if not result_state.is_success():
-            print("Could NOT prove satisfiability")
+            print('Could NOT prove satisfiability')
             return None
         else:
             return result_state
@@ -138,7 +147,7 @@ def _handle_exception(io_config, e):
         traceback.print_exc()
         raise e
     else:
-        print("Terminating with exception ({})".format(e))
+        print('Terminating with exception ({})'.format(e))
 
 def run(io_config, solver_config, batch_mode = False):
     """Run the solver according to the given configuration.
@@ -147,7 +156,8 @@ def run(io_config, solver_config, batch_mode = False):
     timing.log(
         timing.EventType.Start,
         benchmark = io_config.input_file,
-        backend = solver_config.backend
+        encoder = config.EncoderEnum.to_string(solver_config.encoder)
+        #backend = solver_config.backend
     )
     try:
         parsed = preprocess(io_config, solver_config)

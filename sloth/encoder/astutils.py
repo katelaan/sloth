@@ -12,6 +12,8 @@ the encoding.
 
 import collections
 
+import z3
+
 from ..utils import utils
 from . import slast
 
@@ -158,3 +160,20 @@ def structs_in_ast(ast):
     def f_inner(obj, child_results):
         return utils.merge_sets(*child_results)
     return fold(f_inner, f_leaf, ast)
+
+def predicate_to_z3_expr(pred):
+    def leaf(ast):
+        assert isinstance(ast, slast.DataAtom), utils.wrong_type(ast)
+        return ast.atom
+    def inner(ast, children):
+        type_ = type(ast)
+        if type_ == slast.SlNot:
+            return z3.Not(*children)
+        elif type_ == slast.SlAnd:
+            return z3.And(*children)
+        elif type_ == slast.SlOr:
+            return z3.Or(*children)
+        else:
+            raise utils.SlothException('Unexpected node in data predicate: {}'.format(type_))
+
+    return fold(inner, leaf, pred)

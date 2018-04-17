@@ -1,4 +1,4 @@
-;; depth = 7
+;; bound = 7
 ;; This is only satisfiable for depth >= 8
 ;; The above depth bound should just lead to an UNSAT result
 (declare-const a sl.list.loc)

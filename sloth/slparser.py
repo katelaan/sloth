@@ -59,7 +59,7 @@ def parse_sl(sl_str, structs, other_decls = symbols.decls):
         logger.debug("Sorts: {}".format(sorts))
         logger.debug("Uninterpreted functions: {}".format(decls))
 
-    if sl_str.startswith(';; depth = '):
+    if sl_str.startswith(';; bound = '):
         max_depth = int(''.join(list(itertools.takewhile(lambda c : c.isdigit(), sl_str[11:]))))
     else:
         max_depth = None

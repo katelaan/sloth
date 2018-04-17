@@ -1,4 +1,4 @@
-;; depth = 2
+;; bound = 2
 (declare-const a sl.tree.loc)
 (declare-const b sl.tree.loc)
 (declare-const c sl.tree.loc)

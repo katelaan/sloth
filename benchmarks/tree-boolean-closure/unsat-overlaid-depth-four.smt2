@@ -1,4 +1,4 @@
-;; depth = 3
+;; bound = 3
 ;; Should be SAT at depth 4, but we get a segfault after a while...
 (declare-const x sl.tree.loc)
 (declare-const l sl.tree.loc)

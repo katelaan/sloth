@@ -14,7 +14,6 @@ BENCHMARK_PATH = "benchmarks"
 ENCODING_FILE_PREFIX = "encoding"
 
 # Solver config
-MAX_DEPTH = 2 ** 15
 MAX_NUM_STOPS = 2
 MAX_BRANCHING = 2
 
@@ -26,13 +25,29 @@ def max_num_stops(struct):
 
 DEFAULT_LOG_LEVEL = logging.WARN
 
+class EncoderEnum:
+
+    Direct, Exponential = range(2)
+
+    _d = {
+        consts.DIRECT_ENCODER: Direct,
+        consts.EXPONENTIAL_ENCODER: Exponential
+    }
+
+    @staticmethod
+    def from_string(s):
+        return EncoderEnum._d.get(s.lower(), EncoderEnum.Direct)
+
+    @staticmethod
+    def to_string(e):
+        return {v: k for k, v in EncoderEnum._d.items()}.get(e, 'UNKNOWN')
+
 class IOConfig:
 
     def __init__(self):
         self.input_file = None
         self.print_symbol_table = False
         self.dump_smt = False
-        self.dump_til_depth = 0
         self.show_result = True
         self.plot = False
         self.plot_isolated_nodes = True
@@ -46,11 +61,7 @@ class IOConfig:
 class SolverConfig:
 
     def __init__(self):
-        self.max_depth = MAX_DEPTH
-        self.force_depth = False
+        self.override_bound = None
         self.max_num_stops = MAX_NUM_STOPS
-        self.backend = consts.QUANTIFIED_BACKEND
+        self.encoder = EncoderEnum.Direct
         self.structs = []
-
-    def print_config(self):
-        print(self.__args__)
