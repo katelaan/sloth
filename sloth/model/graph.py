@@ -259,12 +259,18 @@ variable.
             return ptr_trg == self.s[trg]
 
     def all_named_ptrs(self, ignore_flds = [DATA_FLD]):
-        flds = self.ptr_flds().difference(ignore_flds)
-        for src in self.s:
-            for trg in self.s:
+        flds = list(sorted(self.ptr_flds().difference(ignore_flds)))
+        for src in sorted(self.s, key = str):
+            for trg in sorted(self.s, key = str):
                 for fld in flds:
                     if self.has_ptr(src, fld, trg):
                         yield (src, fld, trg)
+
+    def all_named_ptrs_str(self, ignore_flds = [DATA_FLD]):
+        return map(lambda t: '{} -[{}]-> {}'.format(*t), self.all_named_ptrs(ignore_flds))
+
+def print_all_named_ptrs(g):
+    print(', '.join(g.all_named_ptrs_str()))
 
 def empty_graph(*vs):
     """Return a model without any pointers and with one location per var in `vs`.

@@ -58,7 +58,7 @@ class EncoderConfig:
     reach_fun_prefix = 'r'
 
     def __init__(self, bounds_by_struct, encode_call_fn = None, global_encoder_fn = None):
-        self.structs = list(bounds_by_struct)
+        self.structs = list(sorted(bounds_by_struct, key = lambda s: s.name))
         # From set to avoid duplicate fields (data occurs in every struct!)
         self.flds = list(sorted({f for s in self.structs for f in s.fields}))
         if self.structs[0].fp_sort != self.structs[-1].fp_sort:

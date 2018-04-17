@@ -9,8 +9,8 @@ constraints (e.g. the Delta formula from the IJCAR paper.)
    import functools
    import z3
    from sloth import *
-   from sloth import slbuilders
-   from sloth.model.graph import Graph
+   from sloth.slbuilders import *
+   from sloth.model.graph import Graph, print_all_named_ptrs
    from sloth.encoder.translation import *
 
 >>> eval_ = evaluate_to_graph
@@ -168,6 +168,9 @@ Graph({0, 1, 2}, {(1, 'data'): ..., (1, 'next'): 2, (2, 'data'): ..., (2, 'next'
 >>> g.are_equal('x', 'data', 'd') and g.are_equal('y', 'data', 'e')
 True
 
+Multiple list calls
+-------------------
+
 Using the same head twice implies the list is empty:
 
 >>> eval_(sl.sepcon(sl.list(x), sl.list(x)))
@@ -176,6 +179,13 @@ Graph({0}, {}, {'sl.list.null': 0, 'x': 0})
 Graph({0, 1}, {}, {'sl.list.null': 0, 'x': 1, 'y': 1})
 >>> is_sat(sl.sepcon(sl.list.seg(x,y), sl.list.seg(x,y), sl.list.neq(x,y)))
 False
+
+Using different heads leads to separate structures:
+
+>>> g = eval_(sl.sepcon(list_ptr_seq(x, sl.list.null, 2), list_ptr_seq(y, sl.list.null, 2, loc_prefix='b', data_prefix='e'))); print_all_named_ptrs(g)
+a1 -[next]-> sl.list.null, b1 -[next]-> sl.list.null, x -[next]-> a1, y -[next]-> b1
+>>> g = eval_(sl.sepcon(list_ptr_seq(x, sl.list.null, 2), list_ptr_seq(y, sl.list.null, 2, loc_prefix='b', data_prefix='e'), list_ptr_seq(z, sl.list.null, 2, loc_prefix='c', data_prefix='f'))); print_all_named_ptrs(g)
+a1 -[next]-> sl.list.null, b1 -[next]-> sl.list.null, c1 -[next]-> sl.list.null, x -[next]-> a1, y -[next]-> b1, z -[next]-> c1
 
 List calls with data
 --------------------
@@ -222,7 +232,7 @@ False
 Further tress tests with fixed (small) size bound enforced by
 classically conjoining allocation of three pointers:
 
->>> alloc3 = slbuilders.full_tree_fragment(t, [u, v], 3)
+>>> alloc3 = full_tree_fragment(t, [u, v], 3)
 >>> g = eval_(z3.And(alloc3, sl.tree.dpred.unary2(sl.alpha == 99, t, u, v))); is_in(g,
 ...       (Graph({0, 1, 2, 3, 4, 5}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 2, (3, 'data'): 99, (3, 'left'): 4, (3, 'right'): 4, (5, 'data'): 99, (5, 'left'): 0, (5, 'right'): 3}, {'a1': 0, 'a2': 3, 'sl.tree.null': 4, 't': 5, 'u': 1, 'v': 2}, {'d0': 99, 'd1': 99, 'd2': 99}),
 ...        Graph({0, 1, 2, 3, 4}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 2, (3, 'data'): 99, (3, 'left'): 1, (3, 'right'): 1, (4, 'data'): 99, (4, 'left'): 0, (4, 'right'): 3}, {'a1': 0, 'a2': 3, 'sl.tree.null': 1, 't': 4, 'u': 1, 'v': 2}, {'d0': 99, 'd1': 99, 'd2': 99})))
@@ -230,6 +240,10 @@ True
 >>> g = eval_(z3.And(alloc3, sl.tree.dpred.left2(sl.alpha < sl.beta, t, u, v))); is_in(set(g.all_named_ptrs()),
 ...       ({('a1', 'left', 'u'), ('a1', 'right', 'v'), ('a2', 'left', 'sl.tree.null'),
 ...         ('a2', 'right', 'sl.tree.null'), ('t', 'left', 'a1'), ('t', 'right', 'a2')},
+...        {('a1', 'left', 'sl.tree.null'), ('a1', 'left', 'u'), ('a1', 'right', 'v'),
+...         ('a2', 'left', 'sl.tree.null'), ('a2', 'left', 'u'),
+...         ('a2', 'right', 'sl.tree.null'), ('a2', 'right', 'u'),
+...         ('t', 'left', 'a1'), ('t', 'right', 'a2')},
 ...        {('a1', 'right', 'v'), ('a2', 'right', 'v'), ('a2', 'right', 'sl.tree.null'), ('a2', 'left', 'v'),
 ...         ('a2', 'left', 'sl.tree.null'), ('a1', 'left', 'u'), ('a1', 'right', 'sl.tree.null'),
 ...         ('t', 'left', 'a1'), ('t', 'right', 'a2')}))
@@ -256,6 +270,14 @@ Equal stop nodes:
 
 >>> is_sat(sl.sepcon(sl.tree.seg2(t, u, v), sl.tree.neq(u, sl.tree.null), sl.tree.neq(v, sl.tree.null), sl.tree.eq(u, v)))
 False
+
+Mixed structures
+----------------
+
+>>> g = eval_(sl.sepcon(sl.tree.seg(t,u), sl.list.seg(x,y), sl.list.neq(x,y), sl.tree.neq(t,u))); is_in(list(g.all_named_ptrs_str()), (['t -[left]-> u', 'x -[next]-> y'], ['t -[left]-> sl.tree.null', 't -[right]-> u', 'x -[next]-> y']))
+True
+>>> g = eval_(z3.And(sl.sepcon(full_tree_fragment(t, [], 1, loc_prefix = 't', data_prefix = 'td'), list_ptr_seq(x, sl.list.null, 2)), sl.sepcon(sl.tree(t), sl.list(x)))); print_all_named_ptrs(g)
+a1 -[next]-> sl.list.null, t -[left]-> sl.tree.null, t -[right]-> sl.tree.null, x -[next]-> a1
 
 """
 

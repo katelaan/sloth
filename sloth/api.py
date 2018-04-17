@@ -230,6 +230,8 @@ def show_evaluation_steps(input, export_file = None, override_bound = None):
         print(g)
         print('\nGraph repr:\n-----------')
         print(repr(g))
+        print('\nPointers by var:\n----------------')
+        print('\n'.join(g.all_named_ptrs_str()))
 
 
 ###############################################################################
