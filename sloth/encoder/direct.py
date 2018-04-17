@@ -93,7 +93,7 @@ class DirectEncoding:
     def __init__(self, config, pred_call):
         self.pred_call = pred_call
         self.n = config.n
-        self.all_structs = list(config.bounds_by_struct)
+        self.all_structs = list(sorted(config.bounds_by_struct, key=str))
         self.struct = pred_call.struct
         self.sort = self.struct.sort
         self.fp_sort = self.sort.set_sort()
@@ -724,6 +724,18 @@ class DirectEncoding:
         return c.from_list(unary + binary).to_conjunction(
             description = 'All data predicates hold')
 
+    def is_well_typed(self):
+        struct = self.struct
+        root = self.pred_call.root
+        stops = self.pred_call.stop_nodes
+        other_structs = [s for s in self.all_structs if s is not struct]
+        exprs = (z3.Not(self.X(fld).contains(v))
+                 for os in other_structs
+                 for fld in os.structural_fields
+                 for v in (root, *stops))
+        return c.And(*exprs,
+                     description = "The root {} and stop points {} aren't allocated in other structs".format(root, stops))
+
     def struct_encoding(self, Y):
         assert isinstance(Y, shared.FPVector), utils.wrong_type(Y)
         struct = self.struct
@@ -737,7 +749,8 @@ class DirectEncoding:
             preds = None
         cs_a = [self.is_struct_footprint(Y),
                 self.is_acyclic(),
-                self.all_leaves_are_stop_nodes()
+                self.all_leaves_are_stop_nodes(),
+                self.is_well_typed()
         ]
         if len(stops) > 1:
             cs_a.append(self.stop_nodes_are_ordered_leaves())

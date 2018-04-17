@@ -242,6 +242,14 @@ variable.
             data_str = ''
         return fmt.format(self.val, ptr_str, stack_str, data_str)
 
+    def is_alloced(self, src, fld):
+        try:
+            src_loc = self.s[src]
+        except:
+            return False
+        else:
+            return (src_loc, fld) in self.ptr
+
     def has_ptr(self, src, fld, trg):
         """Return True iff there is a `fld`-pointer between the vars `src` and `trg`.
 

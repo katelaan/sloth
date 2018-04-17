@@ -232,10 +232,14 @@ False
 Further tress tests with fixed (small) size bound enforced by
 classically conjoining allocation of three pointers:
 
+(Multiple results are possible depending on whether null is different
+from u and v, is the same as u or is the same as v.)
+
 >>> alloc3 = full_tree_fragment(t, [u, v], 3)
 >>> g = eval_(z3.And(alloc3, sl.tree.dpred.unary2(sl.alpha == 99, t, u, v))); is_in(g,
 ...       (Graph({0, 1, 2, 3, 4, 5}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 2, (3, 'data'): 99, (3, 'left'): 4, (3, 'right'): 4, (5, 'data'): 99, (5, 'left'): 0, (5, 'right'): 3}, {'a1': 0, 'a2': 3, 'sl.tree.null': 4, 't': 5, 'u': 1, 'v': 2}, {'d0': 99, 'd1': 99, 'd2': 99}),
-...        Graph({0, 1, 2, 3, 4}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 2, (3, 'data'): 99, (3, 'left'): 1, (3, 'right'): 1, (4, 'data'): 99, (4, 'left'): 0, (4, 'right'): 3}, {'a1': 0, 'a2': 3, 'sl.tree.null': 1, 't': 4, 'u': 1, 'v': 2}, {'d0': 99, 'd1': 99, 'd2': 99})))
+...        Graph({0, 1, 2, 3, 4}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 2, (3, 'data'): 99, (3, 'left'): 1, (3, 'right'): 1, (4, 'data'): 99, (4, 'left'): 0, (4, 'right'): 3}, {'a1': 0, 'a2': 3, 'sl.tree.null': 1, 't': 4, 'u': 1, 'v': 2}, {'d0': 99, 'd1': 99, 'd2': 99}),
+...        Graph({0, 1, 2, 3, 4}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 2, (3, 'data'): 99, (3, 'left'): 2, (3, 'right'): 2, (4, 'data'): 99, (4, 'left'): 0, (4, 'right'): 3}, {'a1': 0, 'a2': 3, 'sl.tree.null': 2, 't': 4, 'u': 1, 'v': 2}, {'d0': 99, 'd1': 99, 'd2': 99})))
 True
 >>> g = eval_(z3.And(alloc3, sl.tree.dpred.left2(sl.alpha < sl.beta, t, u, v))); is_in(set(g.all_named_ptrs()),
 ...       ({('a1', 'left', 'u'), ('a1', 'right', 'v'), ('a2', 'left', 'sl.tree.null'),
@@ -274,8 +278,23 @@ False
 Mixed structures
 ----------------
 
->>> g = eval_(sl.sepcon(sl.tree.seg(t,u), sl.list.seg(x,y), sl.list.neq(x,y), sl.tree.neq(t,u))); is_in(list(g.all_named_ptrs_str()), (['t -[left]-> u', 'x -[next]-> y'], ['t -[left]-> sl.tree.null', 't -[right]-> u', 'x -[next]-> y']))
-True
+>>> g = eval_(sl.sepcon(sl.tree.seg(t,u), sl.list.seg(x,y), sl.list.neq(x,y), sl.tree.neq(t,u)))
+
+Many different models are possible. But in all these models, the
+source nodes are allocated...
+
+>>> [g.is_alloced('x','next'), g.is_alloced('t','left'), g.is_alloced('t','right')]
+[True, True, True]
+
+...and all nodes are different. (In particular, this implies that tree
+and list nodes don't coincide.)
+
+>>> len({g.s[v] for v in 'xytu'})
+4
+
+A mixed assertion where the allocation is fully determined through a
+classical conjunction:
+
 >>> g = eval_(z3.And(sl.sepcon(full_tree_fragment(t, [], 1, loc_prefix = 't', data_prefix = 'td'), list_ptr_seq(x, sl.list.null, 2)), sl.sepcon(sl.tree(t), sl.list(x)))); print_all_named_ptrs(g)
 a1 -[next]-> sl.list.null, t -[left]-> sl.tree.null, t -[right]-> sl.tree.null, x -[next]-> a1
 

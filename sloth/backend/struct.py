@@ -69,6 +69,16 @@ class Struct:
         self.data_field = list(data_fields)[0]
         self.max_segs = config.max_num_stops(self)
 
+    def __eq__(self, other):
+        try:
+            return self.name == other.name
+        except:
+            return False
+
+    def __hash__(self):
+        # TODO: Proper hash for structures?
+        return hash(self.name)
+
     def __str__(self):
         return self.name
 
