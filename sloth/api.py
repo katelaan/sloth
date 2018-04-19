@@ -174,7 +174,7 @@ def encode(input, override_bound = None):
 
 def is_sat_encoding(encoding):
     """Return True iff the given encoding is satisfiable."""
-    assert(isinstance(encoding, constraints.Z3Input))
+    assert isinstance(encoding, constraints.Z3Input), utils.wrong_type(encoding)
     return z3api.is_sat(encoding.to_z3_expr())
 
 def is_sat(input, override_bound = None):
@@ -245,13 +245,14 @@ def model(input, override_bound = None):
 
     """
     if isinstance(input, constraints.Z3Input):
-        is_sat_encoding(input)
-        try:
-            return model_module.SmtModel(z3api.model(),
-                                         input.all_consts(),
-                                         input.structs)
-        except z3.Z3Exception as e:
-            return None
+        if is_sat_encoding(input):
+            try:
+                return model_module.SmtModel(z3api.model(),
+                                             input.all_consts(),
+                                             input.structs)
+            except z3.Z3Exception as e:
+                pass
+        return None
     else:
         return solve(input, override_bound)
 

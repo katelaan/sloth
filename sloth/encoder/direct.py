@@ -676,13 +676,14 @@ class DirectEncoding:
             term = struct.heap_fn(struct.data_field)(x_i)
             return rewriter.partial_leaf_substitution(pred, {self.__alpha : term})
 
-        cs = c.from_list([
+        exprs = [
             z3.Implies(Z.contains(x_i), pred_holds_on(x_i))
-            for x_i in self.xs()]
-        )
-        return cs.to_conjunction(
-            description = 'The unary data predicate {} holds on {}'.format(pred, Z)
-        )
+            for x_i in self.xs()
+        ]
+        if not exprs:
+            exprs = [symbols.Z3True]
+        return c.And(*exprs,
+                     description = 'The unary data predicate {} holds on {}'.format(pred, Z))
 
     def binary_data_pred_holds(self, fld, pred):
         """Does the binary data predicate `pred` hold on `Z`?
@@ -711,7 +712,7 @@ class DirectEncoding:
 
         f = struct.heap_fn(fld)
 
-        cs = c.from_list([
+        exprs = [
             c.as_constraint(
                 z3.Implies(z3.And(Z.contains(x_i),
                                   Z.contains(x_j),
@@ -721,11 +722,12 @@ class DirectEncoding:
                 description = 'If {x_j} is a {fld}-descendant of {x_i} then ({P})[{alpha}/{x_i},beta/{x_j}] holds'.format(x_i = x_i, x_j = x_j, P = pred, alpha = self.__alpha, beta = self.__beta, fld = fld)
             )
             for x_i,x_j in itertools.product(self.xs(), repeat = 2)
-            if non_identical(x_i, x_j)]
-        )
-        return cs.to_conjunction(
-            description = 'The binary data predicate {} holds for {} descendants in {}'.format(pred, fld, Z)
-        )
+            if non_identical(x_i, x_j)
+        ]
+        if not exprs:
+            exprs = [symbols.Z3True]
+        return c.And(*exprs,
+                     description = 'The binary data predicate {} holds for {} descendants in {}'.format(pred, fld, Z))
 
     def data_preds_hold(self, preds):
         # TODO: The possibility to associate multiple predicates with a single call is currently unused, but it's conceivable we use it in the future, based on some AST rewriting that groups pred calls together or something like that

@@ -241,33 +241,13 @@ classically conjoining allocation of three pointers:
 from u and v, is the same as u or is the same as v.)
 
 >>> alloc3 = full_tree_fragment(t, [u, v], 3)
->>> g = eval_(z3.And(alloc3, sl.tree.dpred.unary2(sl.alpha == 99, t, u, v))); is_in(g,
-...       (Graph({0, 1, 2, 3, 4, 5}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 2, (3, 'data'): 99, (3, 'left'): 4, (3, 'right'): 4, (5, 'data'): 99, (5, 'left'): 0, (5, 'right'): 3}, {'a1': 0, 'a2': 3, 'sl.tree.null': 4, 't': 5, 'u': 1, 'v': 2}, {'d0': 99, 'd1': 99, 'd2': 99}),
-...        Graph({0, 1, 2, 3, 4}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 2, (3, 'data'): 99, (3, 'left'): 1, (3, 'right'): 1, (4, 'data'): 99, (4, 'left'): 0, (4, 'right'): 3}, {'a1': 0, 'a2': 3, 'sl.tree.null': 1, 't': 4, 'u': 1, 'v': 2}, {'d0': 99, 'd1': 99, 'd2': 99}),
-...        Graph({0, 1, 2, 3, 4}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 2, (3, 'data'): 99, (3, 'left'): 2, (3, 'right'): 2, (4, 'data'): 99, (4, 'left'): 0, (4, 'right'): 3}, {'a1': 0, 'a2': 3, 'sl.tree.null': 2, 't': 4, 'u': 1, 'v': 2}, {'d0': 99, 'd1': 99, 'd2': 99})))
+>>> g = eval_(z3.And(alloc3, sl.tree.dpred.unary2(sl.alpha == 99, t, u, v))); is_in(g, [Graph({0, 1, 2, 3, 4}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 1, (2, 'data'): 99, (2, 'left'): 1, (2, 'right'): 3, (4, 'data'): 99, (4, 'left'): 0, (4, 'right'): 2}, {'a1': 0, 'a2': 2, 'sl.tree.null': 1, 't': 4, 'u': 1, 'v': 3}, {'d0': 99, 'd1': 99, 'd2': 99}), Graph({0, 1, 2, 3, 4, 5}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 1, (2, 'data'): 99, (2, 'left'): 3, (2, 'right'): 4, (5, 'data'): 99, (5, 'left'): 0, (5, 'right'): 2}, {'a1': 0, 'a2': 2, 'sl.tree.null': 1, 't': 5, 'u': 3, 'v': 4}, {'d0': 99, 'd1': 99, 'd2': 99})])
 True
->>> g = eval_(z3.And(alloc3, sl.tree.dpred.left2(sl.alpha < sl.beta, t, u, v))); is_in(set(g.all_named_ptrs()),
-...       ({('a1', 'left', 'u'), ('a1', 'right', 'v'), ('a2', 'left', 'sl.tree.null'),
-...         ('a2', 'right', 'sl.tree.null'), ('t', 'left', 'a1'), ('t', 'right', 'a2')},
-...        {('a1', 'left', 'sl.tree.null'), ('a1', 'left', 'u'), ('a1', 'right', 'v'),
-...         ('a2', 'left', 'sl.tree.null'), ('a2', 'left', 'u'),
-...         ('a2', 'right', 'sl.tree.null'), ('a2', 'right', 'u'),
-...         ('t', 'left', 'a1'), ('t', 'right', 'a2')},
-...        {('a1', 'right', 'v'), ('a2', 'right', 'v'), ('a2', 'right', 'sl.tree.null'), ('a2', 'left', 'v'),
-...         ('a2', 'left', 'sl.tree.null'), ('a1', 'left', 'u'), ('a1', 'right', 'sl.tree.null'),
-...         ('t', 'left', 'a1'), ('t', 'right', 'a2')}))
+>>> g = eval_(z3.And(alloc3, sl.tree.dpred.left2(sl.alpha < sl.beta, t, u, v))); is_in(set(g.all_named_ptrs()), [{('t', 'left', 'a1'), ('t', 'right', 'a2'), ('a1', 'right', 'u'), ('a2', 'right', 'v'), ('a1', 'right', 'sl.tree.null'), ('a1', 'left', 'u'), ('a1', 'left', 'sl.tree.null'), ('a2', 'left', 'u'), ('a2', 'left', 'sl.tree.null')}, {('a2', 'right', 'v'), ('a2', 'left', 'u'), ('t', 'left', 'a1'), ('a1', 'left', 'sl.tree.null'), ('a1', 'right', 'sl.tree.null'), ('t', 'right', 'a2')}])
 True
 >>> g.data['d0'] < g.data['d1']
 True
->>> g = eval_(z3.And(alloc3, sl.tree.dpred.left2(sl.alpha < sl.beta, t, u, v), sl.tree.dpred.right2(sl.alpha > sl.beta + 3, t, u, v))); is_in(set(g.all_named_ptrs()),
-...     ({('a2', 'right', 'sl.tree.null'), ('a1', 'left', 'u'), ('t', 'left', 'a1'), ('a1', 'right', 'v'),
-...       ('a2', 'left', 'sl.tree.null'), ('t', 'right', 'a2')},
-...      {('a1', 'left', 'u'), ('a1', 'right', 'sl.tree.null'), ('a1', 'right', 'v'),
-...       ('a2', 'left', 'sl.tree.null'), ('a2', 'left', 'v'), ('a2', 'right', 'sl.tree.null'),
-...       ('a2', 'right', 'v'), ('t', 'left', 'a1'), ('t', 'right', 'a2')},
-...      {('a1', 'left', 'sl.tree.null'), ('a1', 'left', 'u'), ('a1', 'right', 'v'),
-...       ('a2', 'left', 'sl.tree.null'), ('a2', 'left', 'u'), ('a2', 'right', 'sl.tree.null'),
-...       ('a2', 'right', 'u'), ('t', 'left', 'a1'), ('t', 'right', 'a2')}))
+>>> g = eval_(z3.And(alloc3, sl.tree.dpred.left2(sl.alpha < sl.beta, t, u, v), sl.tree.dpred.right2(sl.alpha > sl.beta + 3, t, u, v))); is_in(set(g.all_named_ptrs()), [{('t', 'right', 'a2'), ('a2', 'left', 'u'), ('a1', 'left', 'sl.tree.null'), ('t', 'left', 'a1'), ('a1', 'right', 'sl.tree.null'), ('a2', 'right', 'v')}, {('a1', 'left', 'u'), ('a2', 'right', 'v'), ('a2', 'left', 'u'), ('t', 'left', 'a1'), ('a1', 'left', 'sl.tree.null'), ('a1', 'right', 'sl.tree.null'), ('t', 'right', 'a2'), ('a2', 'left', 'sl.tree.null'), ('a1', 'right', 'u')}])
 True
 >>> g.data['d0'] < g.data['d1'] and g.data['d0'] > g.data['d2'] + 3
 True

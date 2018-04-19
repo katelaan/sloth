@@ -130,6 +130,9 @@ def eval_stats(ls):
             mark]
 
 def print_solver_stats():
+    print(solver_stats())
+
+def solver_stats():
     stats = list(process_events(eval_stats))
     headings = ['Benchmark', 'Encoder', 'Total time', 'Smt time', '#Smt calls', 'Status', 'Failed']
     if utils.seq_exists(lambda e : e[-1] != '', stats):
@@ -146,6 +149,8 @@ def print_solver_stats():
     field_formats = ['{:'+str(l)+'}' for l in maxlens]
     format_string = ' | '.join(field_formats)
 
-    print(format_string.format(*headings))
+    lines = []
+    lines.append(format_string.format(*headings))
     for stat in stats:
-        print(format_string.format(*stat))
+        lines.append(format_string.format(*stat))
+    return '\n'.join(lines)
