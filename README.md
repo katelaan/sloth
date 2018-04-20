@@ -48,29 +48,29 @@ Many more examples can be found in the [benchmarks](https://github.com/katelaan/
 sloth also comes with a python API that extends Z3's Python API with SL* features. For example:
 
 ```python
-from z3 import And, Not, Ints
-from sloth import *
+>>> from z3 import And, Not, Ints
+>>> from sloth import *
 
-x, y, z = sl.list.locs('x y z')
-d, e = Ints('d e')
+>>> x, y, z = sl.list.locs('x y z')
+>>> d, e = Ints('d e')
 
 # Construct SL* expressions with the same syntax used in the SMT-LIB extension
 # They are ordinary z3 expression references and can thus be freely combined with z3 expressions
-expr1 = sl.sepcon(sl.list.seg(x, y), sl.list.neq(x,y))
-expr2 = Not(sl.sepcon(sl.list.next(x, z), sl.list.next(z,y), sl.list.data(x,d), sl.list.data(y,e)))
-expr = And(expr1, expr2)
+>>> expr1 = sl.sepcon(sl.list.seg(x, y), sl.list.neq(x,y))
+>>> expr2 = Not(sl.sepcon(sl.list.next(x, z), sl.list.next(z,y), sl.list.data(x,d), sl.list.data(y,e)))
+>>> expr = And(expr1, expr2)
 
 # Check satisfiability
-is_sat(expr)
-Out: True
+>>> is_sat(expr)
+True
 # Get model
-model(expr)
-Out: Model [
-       Struct sl.list [
-         locs = Integers(6:[z, x], 7:[y])
-         null = 2
-         next = 6->7
-         data = 6->9
-       ]
-     ]
+>>> model(expr)
+Model [
+  Struct sl.list [
+    locs = Integers(6:[z, x], 7:[y])
+    null = 2
+    next = 6->7
+    data = 6->9
+  ]
+]
 ```
