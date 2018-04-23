@@ -247,25 +247,30 @@ class Z3Input:
             self.decls = SmtDecls.from_iterable(decls)
         self.structs = astutils.structs_in_ast(self.encoded_ast)
 
-    def to_smt2_string(self, check_sat = True, get_model = True):
+    def to_smt2_string(self, check_sat = True, get_model = True, minify = False):
         cmds = ''
         if check_sat:
             cmds += '\n(check-sat)'
-        if check_sat:
+        if get_model:
             cmds += '\n(get-model)'
+
+        if minify:
+            body = serialization.expr_to_smt2_string(self.constraint.to_z3_expr(), multi_line = False)
+        else:
+            body = textwrap.indent(to_commented_z3_string(self.constraint), '  ')
 
         return '{}\n(assert\n{}\n){}\n'.format(
             self.decls.to_smt2_string(),
-            textwrap.indent(to_commented_z3_string(self.constraint), '  '),
+            body,
             cmds
         )
 
     def to_z3_expr(self):
         return self.constraint.to_z3_expr()
 
-    def to_file(self, filename):
+    def to_file(self, filename, check_sat = True, get_model = True, minify = False):
         with open(filename, 'w') as f:
-            f.write(self.to_smt2_string())
+            f.write(self.to_smt2_string(check_sat, get_model, minify))
 
     def all_consts(self):
         """Return the set of all constants present in the encoded SL expr or introduced in the encodeing"""
