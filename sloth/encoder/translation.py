@@ -190,7 +190,7 @@ a1 -[next]-> sl.list.null, b1 -[next]-> sl.list.null, c1 -[next]-> sl.list.null,
 With negation:
 
 >>> is_sat(z3.And(sl.list(x), z3.Not(sl.sepcon(sl.list.seg(x,y), sl.list(y)))))
-False
+True
 
 List calls with data
 --------------------
@@ -315,8 +315,8 @@ def encode_ast(config, ast):
     config.next_fp_ix = 0 # Reset the next free FP id to 0 for consistent naming
     X = config.global_symbols.X_vec()
     A, B, Z = encode_boolean(config, X, ast)
-    A = c.And(A, description = '***** A *****')
-    B = c.And(B, description = '***** B *****')
+    A = c.And(A, description = '***** A (bound: {}) *****'.format(config.n))
+    B = c.And(B, description = '***** B (bound: {}) *****'.format(config.n))
     cs = [A,B]
     cs.append(config.global_constraint())
     consts = astutils.consts_by_struct(ast)
