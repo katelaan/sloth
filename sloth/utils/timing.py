@@ -1,5 +1,6 @@
 import copy
 import collections
+import signal
 from time import time
 from datetime import timedelta
 # TODO: Use timeit.default_timer for platform-independent timing? Or use a CPU clock timer? (Does the later work properly with the C++ subprocess? Have to try)
@@ -16,8 +17,8 @@ class UndefinedMetaAccess(TimingException):
     """Raised upon access of event attribute that has not been set"""
 
 class EventType:
-    num_events = 9
-    Start, StartSolver, StartSmt, EndSmt, EndSolver, Sat, Unsat, Error, Mark = range(num_events)
+    num_events = 10
+    Start, StartSolver, StartSmt, EndSmt, EndSolver, Sat, Unsat, Error, Mark, Timeout = range(num_events)
 
 class Event:
     """Represents a single timed event in the event log.
@@ -154,3 +155,23 @@ def solver_stats():
     for stat in stats:
         lines.append(format_string.format(*stat))
     return '\n'.join(lines)
+
+
+def timeout(func, *args, kwargs={}, timeout_duration=1, default=None):
+    class TimeoutError(Exception):
+        pass
+
+    def handler(signum, frame):
+        raise TimeoutError()
+
+    # set the timeout handler
+    signal.signal(signal.SIGALRM, handler)
+    signal.alarm(timeout_duration)
+    try:
+        result = func(*args, **kwargs)
+    except TimeoutError as exc:
+        result = default
+    finally:
+        signal.alarm(0)
+
+    return result
