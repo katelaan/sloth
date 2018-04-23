@@ -48,7 +48,8 @@ class Struct:
         self.name = consts.SL_PREFIX + name
         self.input_sort_name = input_sort_name
         self.sort = sort
-        self.fields = fields
+        self.fields = dict(fields)
+        self.ordered_fields = [fld[0] for fld in fields]
         self.structural_fields = structural_fields
         self.points_to_fields = points_to_fields
         self.unrolling_rules = unrolling_rules
@@ -129,6 +130,13 @@ class Struct:
                  + [z3.BoolSort()])
         return z3.Function(self.name+consts.POINTS_TO_SUFFIX, *sorts)
 
+    def dpoints_to_predicate(self):
+        """Returns predicate for allocating all fields at the same time."""
+        sorts = ([self.sort.ref]
+                 + [self.fields[k] for k in self.ordered_fields]
+                 + [z3.BoolSort()])
+        return z3.Function(self.name+consts.DPOINTS_TO_SUFFIX, *sorts)
+
     def fld_predicate(self, fld):
         """Returns predicate for single-field assertions, x ->_{fld} y."""
         assert(isinstance(fld, str))
@@ -149,7 +157,10 @@ class Struct:
     ###############################################################################
 
     def spatial_decls(self):
-        return ([self.points_to_predicate(),self.equality_predicate(),self.disequality_predicate()]
+        return ([self.points_to_predicate(),
+                 self.dpoints_to_predicate(),
+                 self.equality_predicate(),
+                 self.disequality_predicate()]
                 + [self.fld_predicate(fld) for fld in self.fields]
                 + self.recursive_predicates()
                 + self.data_predicates())
@@ -162,8 +173,7 @@ class Struct:
                    for i in range(self.max_segs+1)])
 
     def parsable_decls(self):
-        """Return all SMTLIB2 function decls associated with this struct.
-        Optionally, the max. number of stop constraints can be set by the second parameter."""
+        "Return all SMTLIB2 function decls associated with this struct."
         return (self.spatial_decls() + [self.null])
 
     def recursive_predicates(self):
@@ -174,8 +184,7 @@ class Struct:
                 + [self.segment_predicate(i+1) for i in range(self.max_segs)])
 
     def decl_map(self):
-        """Return dictionary of all parsable declarations associated with this struct.
-        Optionally, the max. number of stop constraints can be set by the second parameter."""
+        "Return dictionary of all parsable declarations associated with this struct."
         return { str(f) : f for f in self.parsable_decls() }
 
     ##############################
@@ -231,13 +240,13 @@ def make_predef_structs(encoder_backend):
     tree_enc_loc = encoder_backend.make_loc_sort(consts.TREE_PRED)
     ptree_enc_loc = encoder_backend.make_loc_sort(consts.PTREE_PRED)
 
-    # TODO: Allocate data pointers in unrolling rules? -- See also FIXME in unrolling_rewriter in rewriting
+    # TODO: Either drop unrolling rules (which are currently unused) or add data fields to them prior to their use
 
     list_struct = Struct(consts.LIST_PRED,
                          input_sort_name = str(list_loc),
                          sort = list_enc_loc,
-                         fields = {consts.FLD_NEXT : list_enc_loc.ref,
-                                   consts.FLD_DATA : symbols.data_sort},
+                         fields = [(consts.FLD_NEXT, list_enc_loc.ref),
+                                   (consts.FLD_DATA, symbols.data_sort)],
                          structural_fields = [consts.FLD_NEXT],
                          points_to_fields = [consts.FLD_NEXT],
                          unrolling_rules = [
@@ -248,9 +257,9 @@ def make_predef_structs(encoder_backend):
     dlist_struct = Struct(consts.DLIST_PRED,
                           input_sort_name = str(dlist_loc),
                           sort = dlist_enc_loc,
-                          fields = {consts.FLD_NEXT : dlist_enc_loc.ref,
-                                    consts.FLD_PREV : dlist_enc_loc.ref,
-                                    consts.FLD_DATA : symbols.data_sort},
+                          fields = [(consts.FLD_NEXT, dlist_enc_loc.ref),
+                                    (consts.FLD_PREV, dlist_enc_loc.ref),
+                                    (consts.FLD_DATA, symbols.data_sort)],
                           structural_fields = [consts.FLD_NEXT],
                           points_to_fields = [consts.FLD_NEXT, consts.FLD_PREV],
                           unrolling_rules = [
@@ -262,9 +271,9 @@ def make_predef_structs(encoder_backend):
     tree_struct = Struct(consts.TREE_PRED,
                          input_sort_name = str(tree_loc),
                          sort = tree_enc_loc,
-                         fields = {consts.FLD_LEFT : tree_enc_loc.ref,
-                                   consts.FLD_RIGHT : tree_enc_loc.ref,
-                                   consts.FLD_DATA : symbols.data_sort},
+                         fields = [(consts.FLD_LEFT, tree_enc_loc.ref),
+                                   (consts.FLD_RIGHT, tree_enc_loc.ref),
+                                   (consts.FLD_DATA, symbols.data_sort)],
                          structural_fields = [consts.FLD_LEFT, consts.FLD_RIGHT],
                          points_to_fields = [consts.FLD_LEFT, consts.FLD_RIGHT],
                          unrolling_rules = [
@@ -275,10 +284,10 @@ def make_predef_structs(encoder_backend):
     ptree_struct = Struct(consts.PTREE_PRED,
                           input_sort_name = str(ptree_loc),
                           sort = ptree_enc_loc,
-                          fields = {consts.FLD_LEFT : ptree_enc_loc.ref,
-                                    consts.FLD_RIGHT : ptree_enc_loc.ref,
-                                    consts.FLD_PARENT : ptree_enc_loc.ref,
-                                    consts.FLD_DATA : symbols.data_sort},
+                          fields = [(consts.FLD_LEFT, ptree_enc_loc.ref),
+                                    (consts.FLD_RIGHT, ptree_enc_loc.ref),
+                                    (consts.FLD_PARENT, ptree_enc_loc.ref),
+                                    (consts.FLD_DATA, symbols.data_sort)],
                           structural_fields = [consts.FLD_LEFT, consts.FLD_RIGHT],
                           points_to_fields = [consts.FLD_LEFT, consts.FLD_RIGHT, consts.FLD_PARENT],
                           unrolling_rules = [
@@ -307,20 +316,6 @@ def make_predef_structs(encoder_backend):
 ###############################################################################
 # Auxiliary functions for structures
 ###############################################################################
-
-# def is_root_of_struct(structs, expr):
-#     """Return true iff the given expression is a predicate (segment) call for one of the predefined structures."""
-#     assert(isinstance(expr, z3.ExprRef))
-#     for struct in structs:
-#         if expr.decl() in struct.recursive_predicates():
-#             logger.debug("{} is root of {}".format(expr, struct.name))
-#             return True
-#     return False
-
-# def is_root_of(struct, expr):
-#     assert(isinstance(struct, Struct))
-#     assert(isinstance(expr, z3.ExprRef))
-#     return expr.decl() in struct.parsable_decls()
 
 def spatial_symbols(structs):
     """Returns a set of all defined spatial SL theory symbols.

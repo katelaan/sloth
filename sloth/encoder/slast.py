@@ -57,14 +57,13 @@ class SlAst:
 
 def _rep(obj, args):
     reps = [repr(arg) for arg in args]
-    return "{}({})".format(type(obj).__name__, ", ".join(reps))
+    return '{}({})'.format(type(obj).__name__, ', '.join(reps))
 
 class PointsTo(SlAst):
     """Representation of sl.struct.pointsto(src, trg_0,...trg_k).
 
-    >>> t = processed_ast([sl.tree.struct], sl.tree.pointsto("a", "b", "c"))
-    >>> e.encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
-    Encoding[...]
+    >>> ast([sl.tree.struct], sl.tree.pointsto('a', 'b', 'c'))
+    PointsTo('sl.tree', a, b, c)
 
     """
 
@@ -80,11 +79,42 @@ class PointsTo(SlAst):
     def loc_consts(self):
         yield self.src
         for fld, trg in zip(self.struct.points_to_fields, self.trg):
+            assert not self.struct.is_data_field(fld)
+            yield trg
+
+    def data_consts(self):
+        if False:
+            yield
+
+    def __repr__(self):
+        args = [self.struct.name, self.src] + self.trg
+        return _rep(self, args)
+
+class DPointsTo(SlAst):
+    """Representation of sl.struct.dpointsto(src, trg_0,...trg_k).
+
+    >>> ast([sl.tree.struct], sl.tree.dpointsto('a', 'b', 'c', Int('d')))
+    DPointsTo('sl.tree', a, b, c, d)
+
+    """
+
+    def __init__(self, struct, src, *trg):
+        super().__init__()
+        self.struct = struct
+        self.src = src
+        self.trg = list(trg)
+
+    def to_sl_expr(self):
+        return self.struct.dpoints_to_predicate()(self.src, *self.trg)
+
+    def loc_consts(self):
+        yield self.src
+        for fld, trg in zip(self.struct.ordered_fields, self.trg):
             if not self.struct.is_data_field(fld):
                 yield trg
 
     def data_consts(self):
-        for fld, trg in zip(self.struct.points_to_fields, self.trg):
+        for fld, trg in zip(self.struct.ordered_fields, self.trg):
             if self.struct.is_data_field(fld):
                 yield trg
 
@@ -95,12 +125,10 @@ class PointsTo(SlAst):
 class PointsToSingleField(SlAst):
     """Representation of sl.struct.fld(src, trg).
 
-    >>> t = processed_ast([sl.list.struct], sl.list.next("a", "b"))
-    >>> e.encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
-    Encoding[...]
-    >>> t = processed_ast([sl.list.struct], sl.list.data("a", "b"))
-    >>> e.encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
-    Encoding[...]
+    >>> ast([sl.list.struct], sl.list.next('a', 'b'))
+    PointsToSingleField('sl.list', 'next', a, b)
+    >>> ast([sl.list.struct], sl.list.data('a', 'b'))
+    PointsToSingleField('sl.list', 'data', a, b)
 
     """
 
@@ -130,7 +158,9 @@ class PointsToSingleField(SlAst):
 class PredCall(SlAst):
     """A spatial predicate call (i.e., without data parameter).
 
-    >>> p = PredCall(sl.list.struct, None, None, sl.list.loc("a"))
+    >>> ast([sl.list.struct], sl.list.dpred.next1(sl.alpha < sl.beta + 3, 'a', 'b'))
+    PredCall('sl.list', 'next', DataAtom(sl.alpha < sl.beta + 3), a, b)
+    >>> p = PredCall(sl.list.struct, None, None, sl.list.loc('a'))
     >>> p.is_leaf()
     True
     >>> p.is_pred_call()
@@ -193,6 +223,15 @@ class PredCall(SlAst):
         return _rep(self, args)
 
 class SpatialEq(SlAst):
+    """Spatial (dis)equalities.
+
+    >>> ast([sl.tree.struct], sl.tree.eq('t', 'u'))
+    SpatialEq(t, u, False)
+    >>> ast([sl.tree.struct], sl.tree.neq('t', sl.tree.null))
+    SpatialEq(t, sl.tree.null, True)
+
+    """
+
     def __init__(self, struct, negated, left, right):
         super().__init__()
         self.struct = struct
@@ -221,10 +260,8 @@ class SpatialEq(SlAst):
 class DataAtom(SlAst):
     """Representation of atomic formulas in the data part.
 
-    >>> a = Int("a")
-    >>> t = processed_ast(sl.structs, a < 42)
-    >>> e.encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
-    Encoding[...]
+    >>> ast(sl.structs, Int('a') < 42)
+    DataAtom(a < 42)
 
     """
 
@@ -285,15 +322,13 @@ class BinOp(Op):
 class SepCon(BinOp):
     """A binary separating conjunction.
 
-    >>> expr = sl.sepcon(sl.list.pointsto("a", "b"), sl.list.pointsto("b", "c"))
-    >>> t = processed_ast(sl.structs, expr)
-    >>> e.encode_ast(t, {}) # doctest: +NORMALIZE_WHITESPACE
-    Encoding[...]
+    >>> ast(sl.structs, sl.sepcon(sl.list.pointsto('a', 'b'), sl.list.pointsto('b', 'c')))
+    SepCon(PointsTo('sl.list', a, b), PointsTo('sl.list', b, c))
 
     """
 
     smt_decl = symbols.sep_con_fn
-    fp_letter = "S"
+    fp_letter = 'S'
 
     def __init__(self, left, right):
         super().__init__(left, right)

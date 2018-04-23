@@ -11,6 +11,7 @@ SEG_SUFFIX = ".seg"
 DATA_PRED_SUFFIX = ".dpred"
 UNARY_DP_SUFFIX = "unary"
 POINTS_TO_SUFFIX = ".pointsto"
+DPOINTS_TO_SUFFIX = ".dpointsto"
 EQ_SUFFIX = ".eq"
 NEQ_SUFFIX = ".neq"
 

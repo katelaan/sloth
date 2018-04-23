@@ -50,6 +50,11 @@ class SlApi:
     True
     >>> sl.list.pointsto('a', sl.list.null)
     sl.list.pointsto(a, sl.list.null)
+    >>> sl.list.dpointsto('a', sl.list.null, z3.Int('d'))
+    sl.list.dpointsto(a, sl.list.null, d)
+    >>> t, u, v = sl.tree.locs('t u v')
+    >>> sl.tree.dpointsto(t, u, v, z3.Int('d'))
+    sl.tree.dpointsto(t, u, v, d)
     >>> expr = sl.sepcon(sl.list.pointsto('a', 'b'), sl.list.pointsto('a', 'c'))
     >>> expr
     sl.sepcon(sl.list.pointsto(a, b), sl.list.pointsto(a, c))
@@ -215,15 +220,19 @@ class StructApi:
         return tuple(_fp_constify(self.struct, arg) for arg in args)
 
     def pointsto(self, *args):
-        """The points-to predicate for the underlying structure."""
+        "The points-to predicate for the underlying structure."
         return self.struct.points_to_predicate()(*self._const(args))
 
+    def dpointsto(self, *args):
+        "The points-to predicate with data for the underlying structure."
+        return self.struct.dpoints_to_predicate()(*self._const(args))
+
     def eq(self, x, y):
-        """An equality in the spatial part"""
+        "A (spatial) equality"
         return self.struct.equality_predicate()(*self._const([x, y]))
 
     def neq(self, x, y):
-        """An equality in the spatial part"""
+        "A (spatial) disequality"
         return self.struct.disequality_predicate()(*self._const([x, y]))
 
     def _fld_predicate(self, f, src, trg):

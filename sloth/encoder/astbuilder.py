@@ -101,6 +101,8 @@ def spatial_rewriting_dict(structs):
         # Points-to assertions
         rewriting_dict.update([(struct.points_to_predicate(),
                                 apply_to_args_and_children(PointsTo, struct))])
+        rewriting_dict.update([(struct.dpoints_to_predicate(),
+                                apply_to_args_and_children(DPointsTo, struct))])
         fld_funs = [(struct.fld_predicate(fld),
                     apply_to_children(functools.partial(PointsToSingleField, struct, fld)))
                     for fld in struct.fields]
