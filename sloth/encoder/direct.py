@@ -16,7 +16,7 @@ import itertools
 
 import z3
 
-from ..backend import generic, lambdas, symbols
+from ..backend import generic, symbols
 from ..utils import utils
 from ..z3api import rewriter
 from . import constraints as c
@@ -274,8 +274,8 @@ class DirectEncoding:
         nonreach_c = c.And(*nonreach,
                            description = "The reachability preds aren't defined on stop nodes")
 
-        return c.And(*exprs, nonreach_c, description = 'Define reachability predicates')
-        #return c.And(*exprs, description = 'Define reachability predicates')
+        #return c.And(*exprs, nonreach_c, description = 'Define reachability predicates')
+        return c.And(*exprs, description = 'Define reachability predicates')
 
     def footprint(self):
         """Define the footprint set `Z` as what's reachble from the root node.
@@ -296,10 +296,10 @@ class DirectEncoding:
             (Or(t == sl.tree.null, t == u, t == v))
             (Z == K(Int, False))
           )
-          ;; If the root is different from a stop node, Z : SET(Int) contains the root
+          ;; If t is not among the x_i, Z : SET(Int) is empty
           (Implies
-            (Or(Not(t == u), Not(t == v)))
-            (Z[t])
+            (And(Not(x0 == t), Not(x1 == t), Not(x2 == t)))
+            (Z == K(Int, False))
           )
           ;; If the root is allocated, Z contains exactly what's reachable from the root
           (Implies
@@ -346,17 +346,24 @@ class DirectEncoding:
         #               Z.contains(root),
         #               description = "If the root isn't a stop node, {} contains the root".format(Z))
         # )
-        if stops:
-            # Phrasing the constraint in this way avoids models of formulas such as
-            # sl.sepcon(sl.list.seg(x,y), sl.list.seg(x,y), sl.list.neq(x,y)
-            # If we just just Not(is_stop_node(root)), a model would be
-            # x = null, y != null and no pointers.
-            cs.append_constraint(
-            c.Implies(symbols.LOr([z3.Not(root == stop) for stop in stops]),
-                      Z.contains(root),
-                      description = 'If the root is different from a stop node, {} contains the root'.format(Z))
-            )
 
+        # if stops:
+        #     # Phrasing the constraint in this way avoids models of formulas such as
+        #     # sl.sepcon(sl.list.seg(x,y), sl.list.seg(x,y), sl.list.neq(x,y)
+        #     # If we just just Not(is_stop_node(root)), a model would be
+        #     # x = null, y != null and no pointers.
+        #     cs.append_constraint(
+        #     c.Implies(symbols.LOr([z3.Not(root == stop) for stop in stops]),
+        #               Z.contains(root),
+        #               description = 'If the root is different from a stop node, {} contains the root'.format(Z))
+        #     )
+
+        cs.append_constraint(
+            c.Implies(z3.And([z3.Not(x_i == root) for x_i in self.xs()]),
+                      Z.is_empty(),
+                      description = 'If {} is not among the x_i, {} is empty'.format(root, Z)
+            )
+        )
 
         exprs = (
             c.Iff(
@@ -453,12 +460,14 @@ class DirectEncoding:
         )
 
 
-    def is_acyclic(self):
+    def structure(self):
         """The structure rooted in `root` restricted to footprint `Z` is acyclic.
 
-        >>> print(de.is_acyclic()) # doctest: +ELLIPSIS
-        ;; acyclic_N: No cycles in the structure induced by Z : SET(Int)
+        >>> print(de.structure()) # doctest: +ELLIPSIS
+        ;; structure: Z : SET(Int) is an acyclic data structure rooted in t
         (And
+          ;; The root is in Z : SET(Int)
+          ...
           ;; parents_N: No two parents have the same child
           ...
           ;; There is no cycle from the root to the root
@@ -472,9 +481,10 @@ class DirectEncoding:
         root = self.pred_call.root
         Z = self.Z
         return c.And(
+            c.Implies(c.Not(self.is_stop_node(root)), Z.contains(root), description = 'The root is in {}'.format(Z)),
             self.parents(),
             c.Not(self.r(n)(root, root), description = 'There is no cycle from the root to the root'),
-            description = 'acyclic_N: No cycles in the structure induced by {}'.format(Z)
+            description = 'structure: {} is an acyclic data structure rooted in {}'.format(Z, root)
         )
 
     def defineY(self, y):
@@ -565,7 +575,8 @@ class DirectEncoding:
           (Or
             ;; x0 is the descendant that is the parent of x_stop
             (And
-              (Or(x0 == sl.tree.right(x_p), r_3(sl.tree.right(x_p), x0)))
+              (Or(x0 == sl.tree.right(x_p),
+                 And(Z[sl.tree.right(x_p)], r_3(sl.tree.right(x_p), x0))))
               (Z[x0])
               ;; x_stop is a ['left', 'right']-successor of x0
               (Or
@@ -585,7 +596,7 @@ class DirectEncoding:
 
         exprs = (
             c.And(
-                z3.Or(x_c == f(x_p), self.r(self.n)(f(x_p), x_c)),
+                z3.Or(x_c == f(x_p), z3.And(Z.contains(f(x_p)), self.r(self.n)(f(x_p), x_c))),
                 Z.contains(x_c),
                 self.S(x_c, stop),
                 description = '{} is the descendant that is the parent of {}'.format(x_c, stop)
@@ -622,7 +633,8 @@ class DirectEncoding:
                 (Or
                   ;; x0 is the descendant that is the parent of u
                   (And
-                    (Or(x0 == sl.tree.left(x0), r_3(sl.tree.left(x0), x0)))
+                    (Or(x0 == sl.tree.left(x0),
+                       And(Z[sl.tree.left(x0)], r_3(sl.tree.left(x0), x0))))
                     (Z[x0])
                     ;; u is a ['left', 'right']-successor of x0
                     (Or
@@ -699,6 +711,9 @@ class DirectEncoding:
         stops = call.stop_nodes
         exprs = [
             self.stops_distinct(),
+            c.Implies(self.is_stop_node(root),
+                      z3.And([root == s for s in stops]),
+                      description = "If the root is a stop node, it's equal to all stop nodes"),
             c.Implies(c.Not(self.is_stop_node(root)), self.stops_occur(),
                       description = "If the root isn't a stop node then all stop nodes occur"),
         ]
@@ -805,6 +820,7 @@ class DirectEncoding:
         return c.And(*exprs,
                      description = "The root {} and stop points {} aren't allocated in other structs".format(root, stops))
 
+
     def root_maps_onto_aux_vars(self):
         return c.as_constraint(
             self.xs_set().contains(self.pred_call.root),
@@ -821,7 +837,7 @@ class DirectEncoding:
             preds = shared.DataPreds((call.fld, call.pred))
         else:
             preds = None
-        cs_a = [self.is_acyclic(),
+        cs_a = [self.structure(),
                 self.all_leaves_are_stop_nodes(),
                 self.is_well_typed(),
                 self.stop_constraints()
