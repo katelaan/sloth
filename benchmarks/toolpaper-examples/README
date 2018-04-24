@@ -1,0 +1,10 @@
+This directory contains the examples from Section 2 of the sloth tool paper.
+
+In the order of the paper, these are:
+
+1.) individual-ptrs.smt2: (x ->_n y) * (x ->_d d) * (d > 0)
+2.) list-segs.smt2: list(x, y) * (y ->_{n,d} (z, d)) * list(z)
+3.) tree-frags.smt2: tree(t, <u,v>) * (u ->_{l,r,d} (null,null,d)) * (v ->_{l,r,d} (null,null,e)) * (d > e)
+4.) list-sorted-positive.smt2: list(x, {alpha > 0, (n, alpha < beta)})
+5.) binary-search-tree.smt2: tree(t,{(l, beta < alpha), (r, beta > alpha)})
+6.) unsat-list-segs-not-list.smt2: (list(x, y) * list(y)) /\ (not list(x))
