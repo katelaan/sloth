@@ -101,23 +101,32 @@ def preprocess(io_config, solver_config):
 def solve(solver_config, parsed):
     "Encapsulates the solution process."
     if parsed is not None:
-        print('Internal representation:\n{}'.format(parsed))
+        logger.debug('Internal representation:\n{}'.format(parsed))
         if solver_config.encoder == config.EncoderEnum.Direct:
-            print('Using direct encoding.')
-            encoding = api.encode(parsed)
-            model = api.model(encoding)
+            logger.info('Using direct encoding.')
+            timing.log(timing.EventType.StartSolver)
+            enc = api.encode(parsed)
+            z3expr = enc.to_z3_expr()
+            timing.log(timing.EventType.StartSmt)
+            sat = z3api.is_sat(z3expr)
+            timing.log(timing.EventType.EndSmt)
+            model = api.current_model(enc.all_consts(), enc.structs)
+            timing.log(timing.EventType.EndSolver)
+            timing.log(timing.EventType.Sat if sat else timing.EventType.Unsat)
             s = z3api.Solver()
-            result_state = enc_utils.ResultState(s, model, encoding)
+            result_state = enc_utils.ResultState(s, model, enc)
+            timing.log(timing.EventType.EndSolver)
         elif solver_config.encoder == config.EncoderEnum.Exponential:
-            print('Using unfolding encoding.')
+            logger.info('Using unfolding encoding.')
             result_state = strategy.decide(solver_config.structs,
                                            parsed,
                                            solver_config.override_bound)
         else:
             print('No encoder specified.')
             sys.exit(1)
+
         if not result_state.is_success():
-            print('Could NOT prove satisfiability')
+            logger.info('Could NOT prove satisfiability')
             return None
         else:
             return result_state
@@ -160,7 +169,6 @@ def run(io_config, solver_config, batch_mode = False):
         timing.EventType.Start,
         benchmark = io_config.input_file,
         encoder = config.EncoderEnum.to_string(solver_config.encoder)
-        #backend = solver_config.backend
     )
     try:
         parsed = preprocess(io_config, solver_config)

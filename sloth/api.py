@@ -49,7 +49,7 @@ In addition there are various methods to help you find and interact with benchma
 >>> all_benchmarks() # doctest: +ELLIPSIS
 ['../benchmarks/...]
 >>> find_benchmarks('list', 'seg') # doctest: +ELLIPSIS
-['../benchmarks/list-boolean-closure/unsat-list-not-list-segs.smt2', '../benchmarks/list-boolean-closure/unsat-list-segs-not-list.smt2', ...]
+['../benchmarks/list-boolean-closure/list-not-list-segs.smt2', '../benchmarks/list-boolean-closure/unsat-list-segs-not-list.smt2', ...]
 >>> benchmark('unsat', 'segs-not-list')
 '../benchmarks/list-boolean-closure/unsat-list-segs-not-list.smt2'
 
@@ -234,6 +234,14 @@ def show_evaluation_steps(input, export_file = None, override_bound = None):
 # Model adaptation & plotting
 ###############################################################################
 
+def current_model(consts, structs):
+    try:
+        return model_module.SmtModel(z3api.model(),
+                                     consts,
+                                     structs)
+    except z3.Z3Exception as e:
+        return None
+
 def model(input, override_bound = None):
     """Returns model for the given expression or encoding.
 
@@ -246,12 +254,7 @@ def model(input, override_bound = None):
     """
     if isinstance(input, constraints.Z3Input):
         if is_sat_encoding(input):
-            try:
-                return model_module.SmtModel(z3api.model(),
-                                             input.all_consts(),
-                                             input.structs)
-            except z3.Z3Exception as e:
-                pass
+            return current_model(input.all_consts(), input.structs)
         return None
     else:
         return solve(input, override_bound)
