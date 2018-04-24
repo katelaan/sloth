@@ -25,7 +25,7 @@ def parse_sl(input_file, structs):
             content = f.read()
     except FileNotFoundError:
         print(input_file + " does not exist")
-        return None
+        return (None, None)
     else:
         return slparser.parse_sl(content, structs)
 

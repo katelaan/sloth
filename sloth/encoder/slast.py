@@ -67,18 +67,18 @@ class PointsTo(SlAst):
 
     """
 
-    def __init__(self, struct, src, *trg):
+    def __init__(self, struct, src, *trgs):
         super().__init__()
         self.struct = struct
         self.src = src
-        self.trg = list(trg)
+        self.trgs = list(trgs)
 
     def to_sl_expr(self):
-        return self.struct.points_to_predicate()(self.src, *self.trg)
+        return self.struct.points_to_predicate()(self.src, *self.trgs)
 
     def loc_consts(self):
         yield self.src
-        for fld, trg in zip(self.struct.points_to_fields, self.trg):
+        for fld, trg in zip(self.struct.points_to_fields, self.trgs):
             assert not self.struct.is_data_field(fld)
             yield trg
 
@@ -87,7 +87,7 @@ class PointsTo(SlAst):
             yield
 
     def __repr__(self):
-        args = [self.struct.name, self.src] + self.trg
+        args = [self.struct.name, self.src] + self.trgs
         return _rep(self, args)
 
 class DPointsTo(SlAst):
@@ -98,28 +98,28 @@ class DPointsTo(SlAst):
 
     """
 
-    def __init__(self, struct, src, *trg):
+    def __init__(self, struct, src, *trgs):
         super().__init__()
         self.struct = struct
         self.src = src
-        self.trg = list(trg)
+        self.trgs = list(trgs)
 
     def to_sl_expr(self):
-        return self.struct.dpoints_to_predicate()(self.src, *self.trg)
+        return self.struct.dpoints_to_predicate()(self.src, *self.trgs)
 
     def loc_consts(self):
         yield self.src
-        for fld, trg in zip(self.struct.ordered_fields, self.trg):
+        for fld, trg in zip(self.struct.ordered_fields, self.trgs):
             if not self.struct.is_data_field(fld):
                 yield trg
 
     def data_consts(self):
-        for fld, trg in zip(self.struct.ordered_fields, self.trg):
+        for fld, trg in zip(self.struct.ordered_fields, self.trgs):
             if self.struct.is_data_field(fld):
                 yield trg
 
     def __repr__(self):
-        args = [self.struct.name, self.src] + self.trg
+        args = [self.struct.name, self.src] + self.trgs
         return _rep(self, args)
 
 class PointsToSingleField(SlAst):
@@ -138,6 +138,7 @@ class PointsToSingleField(SlAst):
         self.src = src
         self.fld = fld
         self.trg = trg
+        self.trgs = [trg]
 
     def to_sl_expr(self):
         return self.struct.fld_predicate(self.fld)(self.src, self.trg)

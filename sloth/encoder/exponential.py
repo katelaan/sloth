@@ -319,18 +319,15 @@ def encoding_from_full_expr(ast, full, fps, is_negated):
     return Encoding(ast.to_sl_expr(), combined = full, fps = fps, is_negated = is_negated)
 
 def encode_pto(pto, is_under_negation):
-    # fps = { (pto.struct, fld) : make_fp(pto.struct, fld, str(pto.src) + str(pto.id_) + ".")
-    #         for fld in pto.struct.points_to_fields }
     fps = { (pto.struct, fld) : make_fp(pto.struct, fld, str(pto.src) + ".")
             for fld in pto.struct.points_to_fields }
-    split_encoding = splitprims.points_to(pto.struct, pto.src, pto.trg, fps.values())
+    split_encoding = splitprims.points_to(pto.struct, pto.src, pto.trgs, fps.values())
 
     if is_under_negation:
         split_encoding.negate()
     return encoding_from_split_expr(pto, split_encoding, fps, is_under_negation)
 
 def encode_pto_fld(pto, is_under_negation):
-    #fp = make_fp(pto.struct, pto.fld, str(pto.src) + str(pto.id_) + ".")
     fp = make_fp(pto.struct, pto.fld, str(pto.src) + ".")
     fps = { (pto.struct, pto.fld) : fp }
     split_encoding = splitprims.fld_points_to(

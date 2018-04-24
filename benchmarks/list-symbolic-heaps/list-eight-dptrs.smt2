@@ -22,5 +22,4 @@
          (sl.sepcon (sl.sepcon (sl.list.dpointsto e f m)
                                (sl.list.dpointsto f g n))
                     (sl.sepcon (sl.list.dpointsto g h o)
-                               (sl.list.dpointsto h sl.list.null p)))))
-(assert (sl.sepcon (sl.list.seg a e) (sl.list e)))
+                               (sl.list.dpointsto h a p)))))

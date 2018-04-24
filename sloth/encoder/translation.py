@@ -369,6 +369,8 @@ def encode_spatial(config, ast, Y):
         return encode_data_atom(ast, Y)
     elif type_ == slast.PointsTo:
         return encode_pto(ast, Y)
+    elif type_ == slast.DPointsTo:
+        return encode_dpto(ast, Y)
     elif type_ == slast.PointsToSingleField:
         return encode_pto_fld(ast, Y)
     elif type_ == slast.SpatialEq:
@@ -391,19 +393,16 @@ def encode_data_atom(da, Y):
     return as_split_constraints(A, B, da)
 
 def encode_pto_fld(pto, Y):
-    alloced, empty = Y.group_by_flds([pto.fld])
-    assert len(alloced) == 1
-    struct, src, fld, trg = pto.struct, pto.src, pto.fld, pto.trg
-    A = c.And(Not(src == struct.null),
-              trg == struct.heap_fn(fld)(src))
-    B = c.And(alloced[0].is_singleton(src),
-              *(fp.is_empty() for fp in empty))
-    return as_split_constraints(A, B, pto)
+    return _encode_field_alloc([pto.fld], pto, Y)
 
 def encode_pto(pto, Y):
-    # TODO: Merge with encode_pto_fld
-    struct, src, trgs = pto.struct, pto.src, pto.trg
-    flds = struct.points_to_fields
+    return _encode_field_alloc(pto.struct.points_to_fields, pto, Y)
+
+def encode_dpto(pto, Y):
+    return _encode_field_alloc(pto.struct.ordered_fields, pto, Y)
+
+def _encode_field_alloc(flds, pto, Y):
+    struct, src, trgs = pto.struct, pto.src, pto.trgs
     alloced, empty = Y.group_by_flds(flds)
     assert len(alloced) == len(flds)
     assert len(flds) == len(trgs)
