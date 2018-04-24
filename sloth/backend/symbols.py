@@ -56,7 +56,7 @@ def LAnd(ls):
     elif l > 1:
         return z3.And(ls)
     else:
-        return True
+        return Z3True
 
 def LOr(ls):
     """Smart disjunction over a sequence of :class:`z3.ExprRef`.
@@ -78,7 +78,7 @@ def LOr(ls):
     elif l > 1:
         return z3.Or(ls)
     else:
-        return False
+        return Z3False
 
 def SepCon(ls):
     """Return separating conjunction over sequence of :class:`z3.ExprRef`.

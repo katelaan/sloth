@@ -142,6 +142,8 @@ class BaseConstraint(SmtConstraint):
 
 class VarArgOp(SmtConstraint):
     def __init__(self, *constraints, sl_expr = None, description = None):
+        if not constraints:
+            constraints = [type(self).neutral]
         self.constraints = [as_constraint(c) for c in constraints]
         super().__init__(sl_expr, description)
 
@@ -155,10 +157,15 @@ class VarArgOp(SmtConstraint):
 
 class And(VarArgOp):
 
+    neutral = symbols.Z3True
+
     def to_z3_expr(self):
         return symbols.LAnd([c.to_z3_expr() for c in self.constraints])
 
 class Or(VarArgOp):
+
+    neutral = symbols.Z3False
+
     def to_z3_expr(self):
         return symbols.LOr([c.to_z3_expr() for c in self.constraints])
 

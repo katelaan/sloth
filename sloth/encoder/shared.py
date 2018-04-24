@@ -25,6 +25,12 @@ class FPVector:
     def __len__(self):
         return len(self.flds)
 
+    def __str__(self):
+        return self.prefix
+
+    def __repr__(self):
+        return 'FPVector({!r} {!r} {!r})'.format(self.fp_sort, self.prefix, self.flds)
+
     def all_fps(self):
         return [self[fld] for fld in self.flds]
 

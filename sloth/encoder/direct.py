@@ -121,6 +121,24 @@ class DirectEncoding:
     def rs(self):
         return self._rs
 
+    def rf(self, x, y, fld):
+        """Constraint that y is n-reachable from x by first taking an fld-pointer.
+
+        >>> print(de.rf(de.x(0), de.x(1), 'left'))
+        ;; x0 is reachable from x1 by first following field left
+        (Or
+          (sl.tree.left(x0) == x1)
+          (And(Z[sl.tree.left(x0)], r_3(sl.tree.left(x0), x1)))
+        )
+
+        """
+
+        f = self.struct.heap_fn(fld)
+        return c.Or(f(x) == y,
+                     z3.And(self.Z.contains(f(x)),
+                            self.r(self.n)(f(x), y)),
+                    description = '{} is reachable from {} by first following field {}'.format(x,y,fld))
+
     def is_stop_node(self, x):
         """Return constraint that `x` is a stop node.
 
@@ -139,6 +157,42 @@ class DirectEncoding:
         return c.as_constraint(symbols.LOr(exprs),
                                description = desc)
 
+    def defineY(self, y):
+        """Tie `Z` to the footprint vector `y`
+
+        >>> y = FPVector(de.fp_sort, prefix = 'Y', flds = 'next left right data'.split())
+        >>> print(de.defineY(y))
+        ;; defineY: Z : SET(Int) equals the footprint parameters Y for sl.tree
+        (And
+          ;; All sl.tree footprints equal Z : SET(Int)
+          (And
+            (Z == Ydata)
+            (Z == Yleft)
+            (Z == Yright)
+          )
+          ;; All other footprints are empty
+          (And
+            (Ynext == K(Int, False))
+          )
+        )
+
+        """
+        assert isinstance(y, shared.FPVector), utils.wrong_type(y)
+        struct = self.struct
+        Z = self.Z
+        equal_exprs = (Z.is_identical(fp) for fp in y.fps_for_struct(struct))
+        ls = [
+            c.And(*equal_exprs, description = 'All {} footprints equal {}'.format(struct.name, Z))
+        ]
+        empty_exprs = [fp.is_empty() for fp in y.fps_for_other_structs(struct)]
+        if empty_exprs:
+            ls.append(c.And(
+                *empty_exprs,
+                description = 'All other footprints are empty')
+            )
+
+        return c.And(*ls, description = 'defineY: {} equals the footprint parameters {} for {}'.format(Z, y, struct.name))
+
     def S(self, x, y):
         """Successor relation for `x` and `y`.
 
@@ -152,9 +206,6 @@ class DirectEncoding:
         """
         struct = self.struct
         flds = struct.structural_fields
-        # exprs = [z3.And(self.X(fld).contains(x),
-        #                  struct.heap_fn(fld)(x) == y)
-        #           for fld in flds]
         exprs = [struct.heap_fn(fld)(x) == y for fld in flds]
         desc = '{} is a {}-successor of {}'.format(y, flds, x)
         return c.Or(*exprs, description = desc)
@@ -265,23 +316,32 @@ class DirectEncoding:
 
         """
         exprs = (self.R(k+1) for k in range(self.n))
-
-        # Non reachability
-        nonreach = (z3.Not(self.r(k)(s,x_i))
-                    for k in range(1,self.n+1)
-                    for x_i in self.xs()
-                    for s in (self.null, *self.pred_call.stop_nodes))
-        nonreach_c = c.And(*nonreach,
-                           description = "The reachability preds aren't defined on stop nodes")
-
-        #return c.And(*exprs, nonreach_c, description = 'Define reachability predicates')
         return c.And(*exprs, description = 'Define reachability predicates')
+
+    def emptyZ(self):
+        """Formalize under which circumstances Z must be empty.
+
+        >>> print(de.emptyZ())
+        ;; The root is such that Z must be empty
+        (Or
+          ;; t is a stop node
+          (Or(t == sl.tree.null, t == u, t == v))
+          (And(Not(x0 == t), Not(x1 == t), Not(x2 == t)))
+        )
+
+        """
+        root = self.pred_call.root
+        return c.Or(
+            self.is_stop_node(root),
+            z3.And([z3.Not(x_i == root) for x_i in self.xs()]),
+            description = 'The root is such that Z must be empty'
+        )
 
     def footprint(self):
         """Define the footprint set `Z` as what's reachble from the root node.
 
         >>> print(de.footprint())
-        ;; Define the footprint set Z : SET(Int) for root t and nodes x0,...,x2
+        ;; footprint: Define the set Z : SET(Int) for root t and nodes x0,...,x2
         (And
           ;; Z : SET(Int) is a subset of {x0,...,x2}
           (Map(=>,
@@ -290,22 +350,21 @@ class DirectEncoding:
                     x2,
                     True)) ==
           K(Int, True))
-          ;; If the root is a stop node, Z : SET(Int) is empty
+          ;; Define when Z : SET(Int) is empty
           (Implies
-            ;; t is a stop node
-            (Or(t == sl.tree.null, t == u, t == v))
-            (Z == K(Int, False))
-          )
-          ;; If t is not among the x_i, Z : SET(Int) is empty
-          (Implies
-            (And(Not(x0 == t), Not(x1 == t), Not(x2 == t)))
-            (Z == K(Int, False))
-          )
-          ;; If the root is allocated, Z contains exactly what's reachable from the root
-          (Implies
-            (Not
+            ;; The root is such that Z must be empty
+            (Or
               ;; t is a stop node
               (Or(t == sl.tree.null, t == u, t == v))
+              (And(Not(x0 == t), Not(x1 == t), Not(x2 == t)))
+            )
+            (Z == K(Int, False))
+          )
+          ;; If the root is allocated, Z : SET(Int) contains exactly what's reachable from the root
+          (Implies
+            (Not
+              ;; The root is such that Z must be empty
+              ...
             )
             ;; Everything in Z : SET(Int) is reachable from the root t
             (And
@@ -313,10 +372,7 @@ class DirectEncoding:
                 (Z[x0])
                 (Or(t == x0, r_3(t, x0)))
               )
-              (Iff
-                (Z[x1])
-                (Or(t == x1, r_3(t, x1)))
-              )
+              ...
               (Iff
                 (Z[x2])
                 (Or(t == x2, r_3(t, x2)))
@@ -335,36 +391,13 @@ class DirectEncoding:
         # Footprint Z contains only the n allowed locations
         cs.append_expr(Z.subset_of(self.xs_set()),
                        description = '{} is a subset of {{{},...,{}}}'.format(Z, self.x(0), self.x(n - 1)))
-        # If the root is a stop node, Z is empty
+        # If the root is a stop node or outside x_1...x_n, Z is empty
         cs.append_constraint(
-            c.Implies(self.is_stop_node(root), Z.is_empty(),
-                      description = 'If the root is a stop node, {} is empty'.format(Z))
-        )
-        # If the root isn't a stop node, it's in Z
-        # cs.append_constraint(
-        #     c.Implies(c.Not(self.is_stop_node(root)),
-        #               Z.contains(root),
-        #               description = "If the root isn't a stop node, {} contains the root".format(Z))
-        # )
-
-        # if stops:
-        #     # Phrasing the constraint in this way avoids models of formulas such as
-        #     # sl.sepcon(sl.list.seg(x,y), sl.list.seg(x,y), sl.list.neq(x,y)
-        #     # If we just just Not(is_stop_node(root)), a model would be
-        #     # x = null, y != null and no pointers.
-        #     cs.append_constraint(
-        #     c.Implies(symbols.LOr([z3.Not(root == stop) for stop in stops]),
-        #               Z.contains(root),
-        #               description = 'If the root is different from a stop node, {} contains the root'.format(Z))
-        #     )
-
-        cs.append_constraint(
-            c.Implies(z3.And([z3.Not(x_i == root) for x_i in self.xs()]),
-                      Z.is_empty(),
-                      description = 'If {} is not among the x_i, {} is empty'.format(root, Z)
-            )
+            c.Implies(self.emptyZ(), Z.is_empty(),
+                      description = 'Define when {} is empty'.format(Z))
         )
 
+        # Define Z for nonempty footprints
         exprs = (
             c.Iff(
                 Z.contains(x_i),
@@ -375,19 +408,19 @@ class DirectEncoding:
         )
 
         cs.append_constraint(
-            c.Implies(c.Not(self.is_stop_node(root)),
+            c.Implies(c.Not(self.emptyZ()),
                       c.And(*exprs,
                             description = 'Everything in {} is reachable from the root {}'.format(Z, root)),
-                      description = "If the root is allocated, Z contains exactly what's reachable from the root"))
+                      description = "If the root is allocated, {} contains exactly what's reachable from the root".format(Z)))
 
 
-        return cs.to_conjunction(description = 'Define the footprint set {} for root {} and nodes {},...,{}'.format(Z, root, self.x(0), self.x(n-1)))
+        return cs.to_conjunction(description = 'footprint: Define the set {} for root {} and nodes {},...,{}'.format(Z, root, self.x(0), self.x(n-1)))
 
-    def parents(self):
-        """parents_N: No two parents have the same child.
+    def oneparent(self):
+        """Every non-null nodes has at most one incoming pointer.
 
-        >>> print(de.parents()) # doctest: +ELLIPSIS
-        ;; parents_N: No two parents have the same child
+        >>> print(de.oneparent()) # doctest: +ELLIPSIS
+        ;; oneparent: Every non-null nodes has at most one incoming pointer
         (And
           ;; If a node has two identical successors they are both null
           (And
@@ -451,12 +484,9 @@ class DirectEncoding:
                 description = "If two nodes share a successor it's null"
             ))
 
-        if not ls:
-            ls = [symbols.Z3True]
-
         return c.And(
             *ls,
-            description = 'parents_N: No two parents have the same child'
+            description = 'oneparent: Every non-null nodes has at most one incoming pointer'
         )
 
 
@@ -467,8 +497,14 @@ class DirectEncoding:
         ;; structure: Z : SET(Int) is an acyclic data structure rooted in t
         (And
           ;; The root is in Z : SET(Int)
-          ...
-          ;; parents_N: No two parents have the same child
+          (Implies
+            (Not
+              ;; t is a stop node
+              (Or(t == sl.tree.null, t == u, t == v))
+            )
+            (Z[t])
+          )
+          ;; oneparent: Every non-null nodes has at most one incoming pointer
           ...
           ;; There is no cycle from the root to the root
           (Not
@@ -482,73 +518,9 @@ class DirectEncoding:
         Z = self.Z
         return c.And(
             c.Implies(c.Not(self.is_stop_node(root)), Z.contains(root), description = 'The root is in {}'.format(Z)),
-            self.parents(),
+            self.oneparent(),
             c.Not(self.r(n)(root, root), description = 'There is no cycle from the root to the root'),
             description = 'structure: {} is an acyclic data structure rooted in {}'.format(Z, root)
-        )
-
-    def defineY(self, y):
-        """Tie `Z` to the global footprint vector `y`
-
-        >>> y = FPVector(de.fp_sort, prefix = 'Y', flds = 'next left right data'.split())
-        >>> print(de.defineY(y))
-        ;; Z : SET(Int) equals the global footprints for sl.tree
-        (And
-          ;; All sl.tree footprints equal Z : SET(Int)
-          (And
-            (Z == Ydata)
-            (Z == Yleft)
-            (Z == Yright)
-          )
-          ;; All other footprints are empty
-          (And
-            (Ynext == K(Int, False))
-          )
-        )
-
-        """
-        assert isinstance(y, shared.FPVector), utils.wrong_type(y)
-        struct = self.struct
-        Z = self.Z
-        equal_exprs = (Z.is_identical(fp) for fp in y.fps_for_struct(struct))
-        ls = [
-            c.And(*equal_exprs, description = 'All {} footprints equal {}'.format(struct.name, Z))
-        ]
-        empty_exprs = [fp.is_empty() for fp in y.fps_for_other_structs(struct)]
-        if empty_exprs:
-            ls.append(c.And(
-                *empty_exprs,
-                description = 'All other footprints are empty')
-            )
-
-        return c.And(*ls, description = '{} equals the global footprints for {}'.format(Z, struct.name))
-
-    def root_alloced_or_node(self, node):
-        Z = self.Z
-        root = self.pred_call.root
-        expr = z3.Or(
-            Z.contains(root),
-            root == node
-        )
-        return c.as_constraint(expr, description = 'The root {} is allocated or equal to {}'.format(root, node))
-
-    def root_alloced(self):
-        Z = self.Z
-        root = self.pred_call.root
-        expr = Z.contains(root)
-        return c.as_constraint(expr, description = 'The root {} must be allocated (because there is more than one stop node)'.format(root))
-
-    def node_occurs(self, node):
-        struct = self.struct
-        Z = self.Z
-        return c.Or(
-            Z.is_empty(),
-            *[c.And(Z.contains(x_i),
-                    symbols.LOr([node == struct.heap_fn(fld)(x_i)
-                                 for fld in struct.structural_fields]),
-                    description = '{} is alloced and one of its descendants is node {}'.format(x_i, node))
-              for x_i in self.xs()],
-            description = 'If the {} is non-empty, it contains the node {}'.format(struct.unqualified_name, node)
         )
 
     def all_leaves_are_stop_nodes(self):
@@ -564,19 +536,22 @@ class DirectEncoding:
                  for fld, fld_fn in fld_fns)
         return c.And(*exprs, description = 'All leaves are stop nodes')
 
-    def stops_leaf_parent(self, x_p, fld, stop):
+    def stop_reachable_by_fld(self, x_p, fld, stop):
         """`x_p` is a `fld`-ancestor of `stop`.
 
-        >>> print(de.stops_leaf_parent(de.sort['x_p'], 'right', de.sort['x_stop']))
-        ;; x_p is a right-ancestor of the stop node x_stop
+        >>> print(de.stop_reachable_by_fld(de.sort['x_p'], 'right', de.sort['x_stop']))
+        ;; fstop: x_p is a right-ancestor of the stop node x_stop
         (Or
           (sl.tree.right(x_p) == x_stop)
           ;; A right-descendant of x_p is the parent of the stop node x_stop
           (Or
             ;; x0 is the descendant that is the parent of x_stop
             (And
-              (Or(x0 == sl.tree.right(x_p),
-                 And(Z[sl.tree.right(x_p)], r_3(sl.tree.right(x_p), x0))))
+              ;; x_p is reachable from x0 by first following field right
+              (Or
+                (sl.tree.right(x_p) == x0)
+                (And(Z[sl.tree.right(x_p)], r_3(sl.tree.right(x_p), x0)))
+              )
               (Z[x0])
               ;; x_stop is a ['left', 'right']-successor of x0
               (Or
@@ -584,19 +559,22 @@ class DirectEncoding:
                 (sl.tree.right(x0) == x_stop)
               )
             )
+            ;; x1 is the descendant that is the parent of x_stop
+            ...
+            ;; x2 is the descendant that is the parent of x_stop
             ...
           )
         )
+
         """
         struct = self.struct
         Z = self.Z
         assert struct.unqualified_name == 'tree', \
             'Redundant stop point constraint for non-tree structure'
-        f = struct.heap_fn(fld)
 
         exprs = (
             c.And(
-                z3.Or(x_c == f(x_p), z3.And(Z.contains(f(x_p)), self.r(self.n)(f(x_p), x_c))),
+                self.rf(x_p, x_c, fld),
                 Z.contains(x_c),
                 self.S(x_c, stop),
                 description = '{} is the descendant that is the parent of {}'.format(x_c, stop)
@@ -609,9 +587,9 @@ class DirectEncoding:
         )
 
         return c.Or(
-            f(x_p) == stop,
+            struct.heap_fn(fld)(x_p) == stop,
             descendant_constraint,
-            description = '{} is a {}-ancestor of the stop node {}'.format(x_p, fld, stop)
+            description = 'fstop: {} is a {}-ancestor of the stop node {}'.format(x_p, fld, stop)
         )
 
     def stop_nodes_are_ordered_leaves(self):
@@ -619,36 +597,28 @@ class DirectEncoding:
     occur in the same order in the tree induced by `Z` as in `stops`.
 
         >>> print(de.stop_nodes_are_ordered_leaves()) # doctest: +ELLIPSIS
-        ;; All adjacent pairs of stop nodes in [u, v] are ordered in the induced tree of Z : SET(Int)
+        ;; ordered: All adjacent pairs of stop nodes in [u, v] are ordered in the induced tree of Z : SET(Int)
         (And
           ;; Stop nodes u and v have an LCA in Z : SET(Int)
           (Or
             ;; x0 is the LCA of u and v
             (And
               (Z[x0])
-              ;; x0 is a left-ancestor of the stop node u
-              (Or
-                (sl.tree.left(x0) == u)
-                ;; A left-descendant of x0 is the parent of the stop node u
-                (Or
-                  ;; x0 is the descendant that is the parent of u
-                  (And
-                    (Or(x0 == sl.tree.left(x0),
-                       And(Z[sl.tree.left(x0)], r_3(sl.tree.left(x0), x0))))
-                    (Z[x0])
-                    ;; u is a ['left', 'right']-successor of x0
-                    (Or
-                      (sl.tree.left(x0) == u)
-                      (sl.tree.right(x0) == u)
-                    )
-                  )
-                  ;; x1 is the descendant that is the parent of u
-                  ...
-                  ;; x2 is the descendant that is the parent of u
-                  ...
-                )
-              )
-             ...
+              ;; fstop: x0 is a left-ancestor of the stop node u
+              ...
+              ;; fstop: x0 is a right-ancestor of the stop node v
+              ...
+            )
+            ;; x1 is the LCA of u and v
+            (And
+              (Z[x1])
+              ;; fstop: x1 is a left-ancestor of the stop node u
+              ...
+              ;; fstop: x1 is a right-ancestor of the stop node v
+              ...
+            )
+            ;; x2 is the LCA of u and v
+            ...
           )
         )
 
@@ -664,8 +634,8 @@ class DirectEncoding:
             def ordered_pair(s, t):
                 exprs = (
                     c.And(Z.contains(x_p),
-                          self.stops_leaf_parent(x_p, 'left', s),
-                          self.stops_leaf_parent(x_p, 'right', t),
+                          self.stop_reachable_by_fld(x_p, 'left', s),
+                          self.stop_reachable_by_fld(x_p, 'right', t),
                           description = '{} is the LCA of {} and {}'.format(x_p, s, t))
                     for x_p in self.xs()
                 )
@@ -680,7 +650,7 @@ class DirectEncoding:
             ]
 
             return c.And(*ordered,
-                         description = 'All adjacent pairs of stop nodes in {} are ordered in the induced tree of {}'.format(stops, Z)
+                         description = 'ordered: All adjacent pairs of stop nodes in {} are ordered in the induced tree of {}'.format(stops, Z)
             )
 
     def stops_distinct(self):
@@ -702,10 +672,122 @@ class DirectEncoding:
                      description = 'Stop nodes are pairwise different')
 
     def stops_occur(self):
-        exprs = (self.node_occurs(s) for s in self.pred_call.stop_nodes)
-        return c.And(*exprs)
+        """All stop nodes occur.
+
+        >>> print(de.stops_occur())
+        ;; All stop nodes occur
+        (And
+          ;; If the tree is non-empty, it contains the node u
+          (Or
+            ;; x0 is alloced and one of its descendants is node u
+            (And
+              (Z[x0])
+              ;; u is a ['left', 'right']-successor of x0
+              (Or
+                (sl.tree.left(x0) == u)
+                (sl.tree.right(x0) == u)
+              )
+            )
+            ;; x1 is alloced and one of its descendants is node u
+            (And
+              (Z[x1])
+              ;; u is a ['left', 'right']-successor of x1
+              (Or
+                (sl.tree.left(x1) == u)
+                (sl.tree.right(x1) == u)
+              )
+            )
+            ;; x2 is alloced and one of its descendants is node u
+            (And
+              (Z[x2])
+              ;; u is a ['left', 'right']-successor of x2
+              (Or
+                (sl.tree.left(x2) == u)
+                (sl.tree.right(x2) == u)
+              )
+            )
+          )
+          ;; If the tree is non-empty, it contains the node v
+          (Or
+            ;; x0 is alloced and one of its descendants is node v
+            (And
+              (Z[x0])
+              ;; v is a ['left', 'right']-successor of x0
+              (Or
+                (sl.tree.left(x0) == v)
+                (sl.tree.right(x0) == v)
+              )
+            )
+            ;; x1 is alloced and one of its descendants is node v
+            (And
+              (Z[x1])
+              ;; v is a ['left', 'right']-successor of x1
+              (Or
+                (sl.tree.left(x1) == v)
+                (sl.tree.right(x1) == v)
+              )
+            )
+            ;; x2 is alloced and one of its descendants is node v
+            (And
+              (Z[x2])
+              ;; v is a ['left', 'right']-successor of x2
+              (Or
+                (sl.tree.left(x2) == v)
+                (sl.tree.right(x2) == v)
+              )
+            )
+          )
+        )
+
+
+        """
+        struct = self.struct
+        Z = self.Z
+
+        def stop_occurs(node):
+            return c.Or(
+                *(c.And(Z.contains(x_i),
+                        self.S(x_i, node),
+                        description = '{} is alloced and one of its descendants is node {}'.format(x_i, node))
+                  for x_i in self.xs()),
+                description = 'If the {} is non-empty, it contains the node {}'.format(struct.unqualified_name, node)
+        )
+
+        exprs = (stop_occurs(s) for s in self.pred_call.stop_nodes)
+        return c.And(*exprs, description = 'All stop nodes occur')
 
     def stop_constraints(self):
+        """The conjunct of all stop-node constraints.
+
+        >>> print(de.stop_constraints())
+        ;; stops^sl.tree: Combined stop node constraints
+        (And
+          ;; Stop nodes are pairwise different
+          ...
+          ;; If the root is a stop node, it's equal to all stop nodes
+          (Implies
+            ;; t is a stop node
+            (Or(t == sl.tree.null, t == u, t == v))
+            (And(t == u, t == v))
+          )
+          ;; If the root isn't a stop node then all stop nodes occur
+          (Implies
+            (Not
+              ;; t is a stop node
+              (Or(t == sl.tree.null, t == u, t == v))
+            )
+            ;; All stop nodes occur
+            ...
+          )
+          ;; All leaves are stop nodes
+          ...
+          ;; ordered: All adjacent pairs of stop nodes in [u, v] are ordered in the induced tree of Z : SET(Int)
+          ...
+        )
+
+
+        """
+
         call = self.pred_call
         root = call.root
         stops = call.stop_nodes
@@ -716,10 +798,11 @@ class DirectEncoding:
                       description = "If the root is a stop node, it's equal to all stop nodes"),
             c.Implies(c.Not(self.is_stop_node(root)), self.stops_occur(),
                       description = "If the root isn't a stop node then all stop nodes occur"),
+            self.all_leaves_are_stop_nodes()
         ]
         if len(stops) > 1:
             exprs.append(self.stop_nodes_are_ordered_leaves())
-        return c.And(*exprs, description = 'Stop node constraints')
+        return c.And(*exprs, description = 'stops^{}: Combined stop node constraints'.format(self.struct))
 
     __alpha = symbols.data_pred_var(0)
     __beta = symbols.data_pred_var(1)
@@ -748,8 +831,6 @@ class DirectEncoding:
             z3.Implies(Z.contains(x_i), pred_holds_on(x_i))
             for x_i in self.xs()
         ]
-        if not exprs:
-            exprs = [symbols.Z3True]
         return c.And(*exprs,
                      description = 'The unary data predicate {} holds on {}'.format(pred, Z))
 
@@ -759,13 +840,18 @@ class DirectEncoding:
         >>> print(de.binary_data_pred_holds('left', sl.alpha < sl.beta))
         ;; The binary data predicate sl.alpha < sl.beta holds for left descendants in Z : SET(Int)
         (And
-          ;; If x1 is a left-descendant of x0 then (sl.alpha < sl.beta)[sl.alpha/x0,beta/x1] holds
-          (Implies(And(Z[x0],
-                      Z[x1],
-                      Or(r_3(sl.tree.left(x0), x1),
-                         sl.tree.left(x0) == x1)),
-                  sl.tree.data(x0) < sl.tree.data(x1)))
-          ;; If x2 is a left-descendant of x0 then (sl.alpha < sl.beta)[sl.alpha/x0,beta/x2] holds
+          (Implies
+            (And
+              (Z[x0])
+              (Z[x1])
+              ;; x0 is reachable from x1 by first following field left
+              (Or
+                (sl.tree.left(x0) == x1)
+                (And(Z[sl.tree.left(x0)], r_3(sl.tree.left(x0), x1)))
+              )
+            )
+            (sl.tree.data(x0) < sl.tree.data(x1))
+          )
           ...
         )
 
@@ -778,22 +864,17 @@ class DirectEncoding:
             return rewriter.partial_leaf_substitution(pred, {self.__alpha : term,
                                                              self.__beta : term2})
 
-        f = struct.heap_fn(fld)
-
-        exprs = [
+        exprs = (
             c.as_constraint(
-                z3.Implies(z3.And(Z.contains(x_i),
-                                  Z.contains(x_j),
-                                  z3.Or(self.r(self.n)(f(x_i), x_j),
-                                        f(x_i) == x_j)),
+                c.Implies(c.And(Z.contains(x_i),
+                                Z.contains(x_j),
+                                self.rf(x_i, x_j, fld)),
                            pred_holds_on(x_i, x_j)),
                 description = 'If {x_j} is a {fld}-descendant of {x_i} then ({P})[{alpha}/{x_i},beta/{x_j}] holds'.format(x_i = x_i, x_j = x_j, P = pred, alpha = self.__alpha, beta = self.__beta, fld = fld)
             )
             for x_i,x_j in itertools.product(self.xs(), repeat = 2)
             if non_identical(x_i, x_j)
-        ]
-        if not exprs:
-            exprs = [symbols.Z3True]
+        )
         return c.And(*exprs,
                      description = 'The binary data predicate {} holds for {} descendants in {}'.format(pred, fld, Z))
 
@@ -815,8 +896,6 @@ class DirectEncoding:
                  for os in other_structs
                  for fld in os.structural_fields
                  for v in (root, *stops)]
-        if not exprs:
-            exprs = [symbols.Z3True]
         return c.And(*exprs,
                      description = "The root {} and stop points {} aren't allocated in other structs".format(root, stops))
 
@@ -838,7 +917,6 @@ class DirectEncoding:
         else:
             preds = None
         cs_a = [self.structure(),
-                self.all_leaves_are_stop_nodes(),
                 self.is_well_typed(),
                 self.stop_constraints()
         ]
