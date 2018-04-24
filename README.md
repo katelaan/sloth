@@ -22,6 +22,13 @@ sloth has a command-line interface that can be invoked via the `sloth.sh` script
 $ ./sloth.sh benchmarks/list-data/sorted-list.smt2`
 ```
 
+sloth comes with a [benchmark suite](https://github.com/katelaan/sloth/tree/master/benchmarks), which you can also run as follows. (This may take several minutes.)
+
+```
+$ ./benchmarks.sh
+```
+The benchmark suite contains both the [examples from the IJCAR'18 paper](https://github.com/katelaan/sloth/tree/master/benchmarks/examples-paper) and the [examples from the sloth tool paper](https://github.com/katelaan/sloth/tree/master/benchmarks/toolpaper-examples).
+
 ## Input format
 
 The sloth command-line interface processes a custom extension
@@ -45,7 +52,7 @@ Many more examples can be found in the [benchmarks](https://github.com/katelaan/
 
 ## Sloth API
 
-sloth also comes with a python API that extends Z3's Python API with SL* features. For example:
+sloth also comes with a Python API that extends Z3's Python API with SL* features. For example:
 
 ```python
 >>> from z3 import And, Not, Ints
