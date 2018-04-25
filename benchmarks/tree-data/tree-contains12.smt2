@@ -1,0 +1,8 @@
+(declare-const t sl.tree.loc)
+(declare-const d1 Int)
+(declare-const d2 Int)
+(assert (sl.sepcon (sl.tree t)
+                   (sl.sepcon (= d1 1)
+                              (= d2 2))))
+(assert (not (sl.tree.dpred.unary (not (= sl.alpha d1)) t)))
+(assert (not (sl.tree.dpred.unary (not (= sl.alpha d2)) t)))
