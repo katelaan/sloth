@@ -62,3 +62,6 @@ def data_decl_name(struct, fld, num_stops):
         return struct.name + DATA_PRED_SUFFIX + "." + fld + num_suffix
     else:
         return struct.name + DATA_PRED_SUFFIX + "." + UNARY_DP_SUFFIX + num_suffix
+
+# All auxiliary variable identifiers introduced in the (direct) encoding start with this prefix
+AUX_VAR_PREFIX = '_'

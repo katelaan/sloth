@@ -11,6 +11,7 @@ import functools
 
 import z3
 
+from .. import consts
 from ..backend import lambdas
 from ..backend import symbols
 from ..utils import logger
@@ -56,9 +57,9 @@ def encode_sl_expr(sl, sl_expr, override_bound = None):
 
 class EncoderConfig:
 
-    fp_vec_prefix = 'Y'
-    fresh_fp_prefix = 'Z'
-    reach_fun_prefix = 'r'
+    fp_vec_prefix = consts.AUX_VAR_PREFIX + 'Y'
+    fresh_fp_prefix = consts.AUX_VAR_PREFIX + 'Z'
+    reach_fun_prefix = consts.AUX_VAR_PREFIX + 'r'
 
     def __init__(self, bounds_by_struct, encode_call_fn = None, global_encoder_fn = None):
         self.structs = list(sorted(bounds_by_struct, key = lambda s: s.name))
@@ -133,8 +134,8 @@ class GlobalSymbols:
 
     """
 
-    node_prefix = 'x'
-    global_fp_prefix = 'X'
+    node_prefix = consts.AUX_VAR_PREFIX + 'x'
+    global_fp_prefix = consts.AUX_VAR_PREFIX + 'X'
 
     def __init__(self, config):
         self.sort = config.sort
@@ -174,7 +175,7 @@ class GlobalSymbols:
         If no field is given, return the variable for the union.
         """
         suffix = fld if fld is not None else ''
-        return self.fp_sort['X' + suffix]
+        return self.fp_sort[GlobalSymbols.global_fp_prefix + suffix]
 
     def Xs(self):
         yield self.X()

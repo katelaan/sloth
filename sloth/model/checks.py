@@ -9,8 +9,7 @@
 
 import itertools
 
-from .. import z3api
-from ..encoder import encoder
+from .. import consts
 from ..utils import utils
 from . import model as model_mod
 from .graph import Graph, canonicalize, DATA_FLD
@@ -44,12 +43,7 @@ def canonical_graph(m, ignore_null = False):
     return canonicalize(g)
 
 def is_aux_var(x):
-    # TODO: This naming scheme should not be hardcoded here!
-    s = str(x)
-    try:
-        return s[0] == 'x' and int(s[1:]) >= 0
-    except:
-        return False
+    return str(x).startswith(consts.AUX_VAR_PREFIX)
 
 def graph_from_smt_model(m, ignore_null = False, skip_fn = is_aux_var):
     """Construct a graph model from an SMT model.
