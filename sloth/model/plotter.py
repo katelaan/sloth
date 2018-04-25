@@ -1,146 +1,160 @@
-from igraph import Graph, plot
+import networkx as nx
+import plotly.offline as offline
+import plotly.graph_objs as go
 
 from .. import consts
-from . import model
-from ..utils import logger
+from . import checks
+from . import graph
 
-def plot_model(smt_model, draw_isolated_nodes):
-    plotter = Plotter(smt_model, draw_isolated_nodes)
-    plotter.run()
+def models_to_html(ms, filename = None):
+    title = ''
+    body = '\n\n'.join(plot_model(m) for m in ms)
+    html = _html_template.format(title=title, body=body)
 
-class Plotter:
+    if filename is not None:
+        with open(filename, 'w') as f:
+            f.write(html)
+    else:
+        return html
 
-    def __init__(self, model, draw_isolated_nodes):
-        self.model = model
-        self.draw_isolated_nodes = draw_isolated_nodes
+_html_template = """<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <title>{title}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="text/javascript"
+            src="https://cdn.plot.ly/plotly-latest.min.js">
+    </script>
+  </head>
+  <body>
+      {body}
+  </body>
+</html>
+"""
 
-    def run(self):
-        self.fill_graph()
-        logger.debug("Graph representation: {}".format(self.g))
-        self.prune_graph()
-        logger.debug("Graph representation after pruning: {}".format(self.g))
-        self.layout_graph()
+def plot_model(m):
+    g = model_to_nx_graph(m)
+    return get_plot_div(g)
 
-    def fill_graph(self):
-        self.g = Graph(directed=True)
-        self.g.add_vertices(len(self.model))
-        self.int_to_node = dict(enumerate(self.model.typed_locs()))
-        logger.debug("Mapping from graph vertex ids to model locations:\n{}".format(self.int_to_node))
-        self.node_to_int = {v: k for k, v in self.int_to_node.items()}
-        logger.debug("Mapping from model locations to vertex ids:\n{}".format(self.node_to_int))
+def iplot_model(m):
+    offline.iplot(model_to_fig(m))
 
-        # Assign variable labels to the vertices
-        for key, node in self.int_to_node.items():
-            self.g.vs[key]["vars"] = self.model.node_labeling[node]
-            self.g.vs[key]["type"] = str(self.int_to_node[key].struct)
-        # print(g.vs["vars"])
+def model_to_fig(m):
+    g = model_to_nx_graph(m)
+    return nx_graph_to_plotly_fig(g)
 
-        for smodel, fld in self.fld_iterator():
-            logger.debug("Adding edges for {}".format(smodel.struct.heap_fn(fld)))
-            self._add_edges(
-                lookup_fn = smodel.heap_fn(fld),
-                tagging_fn = model.tag(smodel.struct),
-                loc_iter = iter(smodel),
-                label = fld)
-        #print(g.es["field"])
+def model_to_nx_graph(m):
+    if isinstance(m, graph.Graph):
+        gm = m
+    else:
+        gm = checks.graph_from_smt_model(m)
 
-    def fld_iterator(self):
-        for struct in self.model.structs:
-            smodel = self.model.struct_model(struct)
-            if smodel:
-                for fld in struct.points_to_fields:#struct.fields:
-                    yield (smodel, fld)
+    label_dict = {v : [] for v in gm.val}
+    for x, v in gm.s.items():
+        label_dict[v].append(x)
 
-    def null_iterator(self):
-        for struct in self.model.structs:
-            smodel = self.model.struct_model(struct)
-            if smodel.null() is not None:
-                yield (smodel, smodel.null())
+    g = nx.DiGraph()
+    for v in gm.val:
+        g.add_node(v, label=', '.join(label_dict[v]))
+    for (src,lbl), trg in gm.ptr.items():
+        if lbl != consts.FLD_DATA:
+            g.add_edge(src, trg, label=lbl)
+    return g
 
-    def prune_graph(self):
-        # For each field, remove the edges from isolated nodes to the default
-        # value of the corresponding heap function, because the isolated nodes
-        # don't actually play a role in satisfying the formula
-        #logger.info(self.g)
+def get_plot_div(g, graph_layout = nx.fruchterman_reingold_layout):
+    return offline.plot(nx_graph_to_plotly_fig(g),
+                        show_link = False,
+                        auto_open = False,
+                        include_plotlyjs = False,
+                        output_type = 'div')
 
-        for smodel, fld in self.fld_iterator():
-            self._cleanup_edges(
-                lookup_fn = smodel.heap_fn(fld),
-                tagging_fn = model.tag(smodel.struct),
-                field = fld)
+def nx_graph_to_plotly_fig(g, graph_layout = nx.fruchterman_reingold_layout):
+    # TODO: Here we currently make the assumption that the nodes are named 0...len(g)-1. Relax that assumption?
+    pos = graph_layout(g)
+    x_nodes = [pos[k][0] for k in g.nodes()]
+    y_nodes = [pos[k][1] for k in g.nodes()]
+    labels = [g.node[k]['label'] for k in g.nodes()]
 
-        # Remove edges that start in null
-        for smodel, null in self.null_iterator():
-            self._remove_null_edges(model.tag(smodel.struct), null)
+    ptr_labels = set()
+    x_src_edges = {}
+    y_src_edges = {}
+    x_trg_edges = {}
+    y_trg_edges = {}
 
-        # Delete isolated node if that option is enabled
-        if (not self.draw_isolated_nodes):
-            self._delete_isolated_nodes()
-
-    def _remove_null_edges(self, tagging_fn, null_node):
-        assert(null_node is not None)
-        try:
-            edges_from_null = self.g.es.select(_source = self.node_to_int[tagging_fn(null_node)])
-        except KeyError:
-            msg = "Null node {} not in function interpretation => No null edges to prune"
-            logger.debug(msg.format(null_node))
+    def add_edge(label, from_, to, is_src_edge):
+        ptr_labels.add(label)
+        if is_src_edge:
+            x_dict, y_dict = x_src_edges, y_src_edges
         else:
-            self.g.delete_edges(edges_from_null)
+            x_dict, y_dict = x_trg_edges, y_trg_edges
+        x_dict.setdefault(label, []).extend([from_[0], to[0], None])
+        y_dict.setdefault(label, []).extend([from_[1], to[1], None])
 
-    def layout_graph(self):
-        # The actual layout
-        self.g.vs["label"] = [str(v)[1:-1] for v in self.g.vs["vars"]]
-        if self.g.es: self.g.es["label"] = self.g.es["field"]
-        self.g.vs["color"] = [self._assign_color(v) for v in self.g.vs]
-        self.g.vs["shape"] = [self._assign_shape(v) for v in self.g.vs]
-        layout = self.g.layout_auto()
-        plot(self.g, layout=layout)
+    for edge in g.edges():
+        src, trg = edge[0], edge[1]
+        src_pos = [pos[src][i] for i in (0,1)]
+        trg_pos = [pos[trg][i] for i in (0,1)]
+        mid_pos = [(pos[src][i] + (pos[trg][i] - pos[src][i]) / 2) for i in (0,1)]
+        add_edge(g[src][trg]['label'], src_pos, mid_pos, True)
+        add_edge(g[src][trg]['label'], mid_pos, trg_pos, False)
 
-    def _add_edges(self, lookup_fn, tagging_fn, loc_iter, label):
-        if lookup_fn.is_defined():
-            # Add labeled edges for the heap_left / heap_right functions
-            for loc in loc_iter:
-                src_vertex = self.node_to_int[tagging_fn(loc)]
-                trg = lookup_fn(loc)
-                trg_vertex = self.node_to_int[tagging_fn(trg)]
-                self.g.add_edge(src_vertex, trg_vertex, field = label)
+    colors = ['red','green','blue','orange']
 
-    def _cleanup_edges(self, lookup_fn, tagging_fn, field):
-        if lookup_fn.is_defined():
-            # Remove all edges that go from isolated nodes to the default value
-            # of the corresponding lookup function
-            def_val = self.node_to_int[tagging_fn(lookup_fn.default_val())]
-            to_delete = []
-            for e in self.g.es.select(field_eq = field, _target = def_val):
-                logger.debug("Candidate for removal: {}->{}".format(e.source, e.target))
-                if self._remove_edge(e):
-                    logger.debug("Will remove edge")
-                    to_delete.append(e)
-            self.g.delete_edges(to_delete)
+    edge_traces = []
+    for i,lbl in enumerate(ptr_labels):
+        col = colors[i]
+        edge_traces.extend([
+            go.Scatter(x=x_src_edges[lbl],
+                       y=y_src_edges[lbl],
+                       mode='lines+text',
+                       text=lbl,
+                       textposition='top',
+                       line=go.Line(color=col, width=4),
+                       hoverinfo='none'
+            ),
+           go.Scatter(x=x_trg_edges[lbl],
+                      y=y_trg_edges[lbl],
+                      mode='lines',
+                      line=go.Line(color=col, width=7),
+                      hoverinfo='none'
+            )
+        ])
 
-    def _remove_edge(self, e):
-         return (self.g.vs[e.source]["vars"] == []
-                 and len(self.g.es.select(_target = e.source)) == 0)
+    vertex_trace=go.Scatter(x=x_nodes,
+                            y=y_nodes,
+                            mode='markers+text',
+                            marker=go.Marker(symbol='dot',
+                                             size=25,
+                                             color='rgb(127,127,255)',
+                                             line=go.Line(color='rgb(50,50,50)', width=2)
+                            ),
+                            text=labels,
+                            textposition='top',
+                            hoverinfo='text'
+    )
 
-    def _delete_isolated_nodes(self):
-        to_delete = []
-        for v in self.g.vs:
-            if (len(self.g.es.select(_target = v.index))
-                + len(self.g.es.select(_source = v.index)) == 0):
-                to_delete.append(v)
-        self.g.delete_vertices(to_delete)
+    data=go.Data([*edge_traces, vertex_trace])
 
-    def _assign_color(self, v):
-        color_dict = {
-            "sl.list": "orange",
-            "sl.dlist": "red",
-            "sl.tree": "yellow",
-            "sl.ptree": "green"
-        }
-        return color_dict.get(v["type"], "grey")
+    layout=go.Layout(title=g.graph.get('title', 'Model'),
+                     font=go.Font(size=12),
+                     showlegend=False,
+                     xaxis=go.XAxis(showgrid=False, zeroline=False, showticklabels=False),
+                     yaxis=go.YAxis(showgrid=False, zeroline=False, showticklabels=False),
+                     hovermode='closest'
+    )
 
-    def _assign_shape(self, v):
-        if consts.NULL_SUFFIX in v["label"]:
-            return "rectangle"
-        else:
-            return "circle"
+    fig=go.Figure(data=data,
+                 layout=layout)
+    #print(fig)
+    return fig
+
+if __name__ == '__main__':
+    N = 10
+    g = nx.DiGraph()
+    for i in range(N-1):
+        g.add_edge(i, i+1)
+        if i < N / 2:
+            g.add_edge(i, 2*i)
+    labels = [str(i) for i in range(N)]
+    print(plot_nx_graph(g, labels))

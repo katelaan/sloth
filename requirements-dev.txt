@@ -1,7 +1,7 @@
-pkg-resources==0.0.0
--e git+https://github.com/pygobject/pycairo@cd1a6a6d9317ed362f0b0dcf0643c7010d22f521#egg=pycairo
-python-igraph==0.7.1.post6
 z3-solver==4.5.1.0.post2
+networkx==2.1
+numpy==1.14.2
+plotly==2.5.1
 jupyter
 Sphinx
 sphinx-rtd-theme

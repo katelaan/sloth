@@ -12,7 +12,7 @@ import itertools
 from .. import consts
 from ..utils import utils
 from . import model as model_mod
-from .graph import Graph, canonicalize, DATA_FLD
+from .graph import Graph, canonicalize
 
 def _as_graph(m):
     if isinstance(m, Graph):
@@ -104,7 +104,7 @@ def graph_from_smt_model(m, ignore_null = False, skip_fn = is_aux_var):
     # Filter out isolated nodes
     non_isolated = set(itertools.chain(stack.values(),
                                (src for src,_ in ptrs),
-                               (trg for (_,lbl), trg in ptrs.items() if lbl != DATA_FLD)
+                               (trg for (_,lbl), trg in ptrs.items() if lbl != consts.FLD_DATA)
                                ))
     assert non_isolated.issubset(vals), \
         'Trying to restrict {} to {}, which is not a subset'.format(Graph(vals, ptrs, stack, data), non_isolated)

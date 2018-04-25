@@ -103,10 +103,9 @@ class StructModel:
                     yield loc
 
     def is_alloced(self, loc, fld):
-        # TODO: Allocation check is very brittle - it immediately fails when the global FP name is changed in the encoding. At the very least this should be somewhere in the config
         match = None
         for fp in self.locs.fp_consts:
-            if str(fp) == 'X' + fld:
+            if str(fp) == encoder.GlobalSymbols.global_fp_prefix + fld:
                 match = fp
                 break
         assert match is not None, \

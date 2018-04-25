@@ -8,9 +8,8 @@
 
 import functools, itertools
 
+from ..consts import FLD_DATA
 from ..utils import utils
-
-DATA_FLD = 'data'
 
 @functools.total_ordering
 class Graph:
@@ -205,7 +204,7 @@ variable.
             curr = cache.pop()
             visited.add(curr)
             # Only follow non-data pointers
-            children = (trg for (src,lbl),trg in self.ptr.items() if src == curr and lbl != DATA_FLD)
+            children = (trg for (src,lbl),trg in self.ptr.items() if src == curr and lbl != FLD_DATA)
             for c in children:
                 if c not in visited and c in self.val:
                     cache.add(c)
@@ -266,7 +265,7 @@ variable.
         else:
             return ptr_trg == self.s[trg]
 
-    def all_named_ptrs(self, ignore_flds = [DATA_FLD]):
+    def all_named_ptrs(self, ignore_flds = [FLD_DATA]):
         flds = list(sorted(self.ptr_flds().difference(ignore_flds)))
         for src in sorted(self.s, key = str):
             for trg in sorted(self.s, key = str):
@@ -274,7 +273,7 @@ variable.
                     if self.has_ptr(src, fld, trg):
                         yield (src, fld, trg)
 
-    def all_named_ptrs_str(self, ignore_flds = [DATA_FLD]):
+    def all_named_ptrs_str(self, ignore_flds = [FLD_DATA]):
         return map(lambda t: '{} -[{}]-> {}'.format(*t), self.all_named_ptrs(ignore_flds))
 
 def print_all_named_ptrs(g):
@@ -337,7 +336,7 @@ def canonicalize(m):
             i += 1
             visited.add(v)
             # Add all non-data children to the cache
-            children = ((lbl,trg) for (src,lbl),trg in m.ptr.items() if src == v and lbl != DATA_FLD)
+            children = ((lbl,trg) for (src,lbl),trg in m.ptr.items() if src == v and lbl != FLD_DATA)
             sorted_cs = [trg for (_,trg) in sorted(children)]
             cache = sorted_cs + cache
     return m.rename_vals(renaming)

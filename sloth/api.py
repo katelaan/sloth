@@ -66,7 +66,7 @@ from . import slparser, wrapper, slapi
 from . import z3api
 from .backend import LambdaBackend, QuantifiedBackend, struct
 from .encoder import encoder, constraints
-from .model import model as model_module, checks
+from .model import model as model_module, checks, plotter
 from .utils import logger, utils
 from .z3api import z3utils
 
@@ -277,7 +277,7 @@ def z3_to_py(expr):
         return expr.as_long()
 
 def model_to_graph(model, ignore_null = False):
-    return checks.canonical_graph(model, ignore_null)
+    return checks.graph_from_smt_model(model, ignore_null = ignore_null)
 
 def stats(mod = None):
     """Print statistics about the given :class:`model.SmtModel`."""
@@ -287,13 +287,27 @@ def stats(mod = None):
     else:
         raise ApiException("Can only show stats for SmtModel")
 
-def plot(mod = None, draw_isolated_nodes = True):
-    """Plot the given :class:`model.SmtModel`."""
-    if mod is None: mod = model()
-    if isinstance(mod, model_module.SmtModel):
-        wrapper.plot_result(mod, draw_isolated_nodes)
+iplot_initialized = False
+
+def iplot(mod):
+    global iplot_initialized
+    if not iplot_initialized:
+        from plotly.offline import init_notebook_mode
+        init_notebook_mode(connected=True)
+        iplot_initialized = True
+
+    if isinstance(mod, model_module.SmtModel) or isinstance(mod, graph.Graph):
+        plotter.iplot_model(mod)
     else:
-        raise ApiException("Can only plot SmtModel")
+        raise ApiException("Cannot plot {}".format(type(mod).__name__))
+
+def plot(mod, filename = 'plot.html'):
+    """Plot the given :class:`model.SmtModel`."""
+    if isinstance(mod, model_module.SmtModel) or isinstance(mod, graph.Graph):
+        plotter.models_to_html([mod], filename = filename)
+        print ('Saved plot in {}'.format(filename))
+    else:
+        raise ApiException("Cannot plot {}".format(type(mod).__name__))
 
 ###############################################################################
 # Benchmarking and testing API
