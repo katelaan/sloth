@@ -1,0 +1,6 @@
+(declare-const x sl.list.loc)
+(declare-const y sl.list.loc)
+(declare-const t sl.tree.loc)
+(declare-const u sl.tree.loc)
+(declare-const v sl.tree.loc)
+(assert (sl.sepcon (sl.list.seg x y) (sl.tree.seg2 t u v)))

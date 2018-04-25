@@ -1,0 +1,5 @@
+(declare-const t sl.tree.loc)
+(declare-const u sl.tree.loc)
+(assert (not (sl.tree.seg t u)))
+(assert (and (sl.tree.dpred.left1 (> sl.alpha sl.beta) t u)
+             (sl.tree.dpred.right1 (< sl.alpha sl.beta) t u)))
