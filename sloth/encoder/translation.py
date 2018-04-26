@@ -10,10 +10,11 @@ constraints (e.g. the Delta formula from the IJCAR paper.)
    import z3
    from sloth import *
    from sloth.slbuilders import *
+   from sloth.model import checks
    from sloth.model.graph import Graph, print_all_named_ptrs
    from sloth.encoder.translation import *
 
->>> eval_ = evaluate_to_graph
+>>> eval_ = lambda *args, **kwargs: checks.canonicalize(evaluate_to_graph(*args, **kwargs))
 >>> x, y, z = sl.list.locs('x y z'); t, u, v, w = sl.tree.locs('t u v w'); d, e, f = z3.Ints('d e f')
 
 Note that for some inputs that don't explicitly reference null, it
@@ -221,11 +222,14 @@ Tree calls
 
 >>> is_in(eval_(sl.tree(t)), (Graph({0}, {}, {'sl.tree.null': 0, 't': 0}), Graph({0, 1}, {(1, 'left'): 0, (1, 'right'): 0}, {'sl.tree.null': 0, 't': 1})))
 True
->>> is_in(eval_(sl.tree.seg2(t, u, v), override_bound = 4), [Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 3}), Graph({0, 1, 2, 3, 4, 5}, {(1, 'left'): 0, (1, 'right'): 2, (2, 'left'): 3, (2, 'right'): 5, (3, 'left'): 0, (3, 'right'): 4}, {'sl.tree.null': 0, 't': 1, 'u': 4, 'v': 5}), Graph({0, 1, 2, 3, 4}, {(1, 'left'): 0, (1, 'right'): 2, (2, 'left'): 3, (2, 'right'): 0, (3, 'left'): 0, (3, 'right'): 4}, {'sl.tree.null': 0, 't': 1, 'u': 0, 'v': 4}), Graph({0, 1, 2, 3, 4, 5}, {(1, 'left'): 2, (1, 'right'): 0, (2, 'left'): 0, (2, 'right'): 3, (3, 'left'): 4, (3, 'right'): 5}, {'sl.tree.null': 0, 't': 1, 'u': 4, 'v': 5}), Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 0, (2, 'left'): 0, (2, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 3, 'v': 0})])
+>>> is_in(eval_(sl.tree.seg2(t, u, v), override_bound = 4), [Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 3}), Graph({0, 1, 2, 3, 4, 5}, {(1, 'left'): 0, (1, 'right'): 2, (2, 'left'): 3, (2, 'right'): 5, (3, 'left'): 0, (3, 'right'): 4}, {'sl.tree.null': 0, 't': 1, 'u': 4, 'v': 5}), Graph({0, 1, 2, 3, 4}, {(1, 'left'): 0, (1, 'right'): 2, (2, 'left'): 3, (2, 'right'): 0, (3, 'left'): 0, (3, 'right'): 4}, {'sl.tree.null': 0, 't': 1, 'u': 0, 'v': 4}), Graph({0, 1, 2, 3, 4, 5}, {(1, 'left'): 2, (1, 'right'): 0, (2, 'left'): 0, (2, 'right'): 3, (3, 'left'): 4, (3, 'right'): 5}, {'sl.tree.null': 0, 't': 1, 'u': 4, 'v': 5}), Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 0, (2, 'left'): 0, (2, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 3, 'v': 0}), Graph({0, 1, 2, 3, 4, 5}, {(1, 'left'): 2, (1, 'right'): 5, (2, 'left'): 0, (2, 'right'): 3, (3, 'left'): 4, (3, 'right'): 0}, {'sl.tree.null': 0, 't': 1, 'u': 4, 'v': 5})])
 True
 >>> eval_(sl.sepcon(sl.tree.seg2(t, u, v), sl.tree.neq(u, sl.tree.null), sl.tree.neq(v, sl.tree.null)), override_bound = 1)
 Graph({0, 1, 2, 3}, {(1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 3})
->>> is_in(eval_(sl.tree.dpred.unary2(sl.alpha == 99, t, u, v)), [Graph({0, 1, 2, 3}, {(1, 'data'): 99, (1, 'left'): 2, (1, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 2, 'v': 3}), Graph({0, 1, 2, 3, 4}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 1, (2, 'data'): 99, (2, 'left'): 3, (2, 'right'): 1, (4, 'data'): 99, (4, 'left'): 0, (4, 'right'): 2}, {'a1': 0, 'a2': 2, 'sl.tree.null': 1, 't': 4, 'u': 3, 'v': 1}, {'d0': 99, 'd1': 99, 'd2': 99}), Graph({0, 1, 2, 3}, {(1, 'data'): 99, (1, 'left'): 2, (1, 'right'): 0, (2, 'data'): 99, (2, 'left'): 0, (2, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 3, 'v': 0}), Graph({0, 1, 2, 3}, {(1, 'data'): 99, (1, 'left'): 2, (1, 'right'): 0, (2, 'data'): 99, (2, 'left'): 0, (2, 'right'): 3}, {'sl.tree.null': 0, 't': 1, 'u': 0, 'v': 3}), Graph({0, 1, 2, 3, 4}, {(1, 'data'): 99, (1, 'left'): 2, (1, 'right'): 4, (2, 'data'): 99, (2, 'left'): 0, (2, 'right'): 3, (4, 'data'): 99, (4, 'left'): 0, (4, 'right'): 0}, {'sl.tree.null': 0, 't': 1, 'u': 0, 'v': 3})])
+>>> g = eval_(sl.tree.dpred.unary2(sl.alpha == 99, t, u, v))
+>>> g.succ_of('t', 'data')
+99
+>>> g.are_ordered(['left','right'], 't', 'u', 'v')
 True
 >>> is_in(eval_(sl.sepcon(sl.tree(t), sl.tree(t))), [Graph({0}, {}, {'sl.tree.null': 0, 't': 0}), Graph({0, 1}, {}, {'sl.tree.null': 0, 't': 1})])
 True
@@ -241,7 +245,10 @@ classically conjoining allocation of three pointers:
 from u and v, is the same as u or is the same as v.)
 
 >>> alloc3 = full_tree_fragment(t, [u, v], 3)
->>> g = eval_(z3.And(alloc3, sl.tree.dpred.unary2(sl.alpha == 99, t, u, v))); is_in(g, [Graph({0, 1, 2, 3, 4}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 1, (2, 'data'): 99, (2, 'left'): 1, (2, 'right'): 3, (4, 'data'): 99, (4, 'left'): 0, (4, 'right'): 2}, {'a1': 0, 'a2': 2, 'sl.tree.null': 1, 't': 4, 'u': 1, 'v': 3}, {'d0': 99, 'd1': 99, 'd2': 99}), Graph({0, 1, 2, 3, 4, 5}, {(0, 'data'): 99, (0, 'left'): 1, (0, 'right'): 1, (2, 'data'): 99, (2, 'left'): 3, (2, 'right'): 4, (5, 'data'): 99, (5, 'left'): 0, (5, 'right'): 2}, {'a1': 0, 'a2': 2, 'sl.tree.null': 1, 't': 5, 'u': 3, 'v': 4}, {'d0': 99, 'd1': 99, 'd2': 99})])
+>>> g = eval_(z3.And(alloc3, sl.tree.dpred.unary2(sl.alpha == 99, t, u, v)))
+>>> (g.succ_of('t', 'data'), g.succ_of(g.succ_of('t', 'left'), 'data'), g.succ_of(g.succ_of('t', 'right'), 'data'))
+(99, 99, 99)
+>>> g.are_ordered(['left','right'], 't', 'u', 'v')
 True
 >>> g = eval_(z3.And(alloc3, sl.tree.dpred.left2(sl.alpha < sl.beta, t, u, v))); is_in(set(g.all_named_ptrs()), [{('t', 'left', 'a1'), ('t', 'right', 'a2'), ('a1', 'right', 'u'), ('a2', 'right', 'v'), ('a1', 'right', 'sl.tree.null'), ('a1', 'left', 'u'), ('a1', 'left', 'sl.tree.null'), ('a2', 'left', 'u'), ('a2', 'left', 'sl.tree.null')}, {('a2', 'right', 'v'), ('a2', 'left', 'u'), ('t', 'left', 'a1'), ('a1', 'left', 'sl.tree.null'), ('a1', 'right', 'sl.tree.null'), ('t', 'right', 'a2')}])
 True

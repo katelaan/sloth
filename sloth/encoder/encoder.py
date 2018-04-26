@@ -153,7 +153,7 @@ class GlobalSymbols:
     def xs(self):
         """
         >>> list(cnf.global_symbols.xs())
-        [x0, x1, x2]
+        [_x0, _x1, _x2]
         """
         return (self.x(i) for i in range(self.n))
 
@@ -161,7 +161,7 @@ class GlobalSymbols:
         """Return reference to a set that contains all `xs`.
 
         >>> cnf.global_symbols.xs_set() # doctest: +NORMALIZE_WHITESPACE
-        Store(Store(Store(K(Int, False), x0, True), x1, True), x2, True) : SET(Int)
+        Store(Store(Store(K(Int, False), _x0, True), _x1, True), _x2, True) : SET(Int)
         """
         return lambdas.LambdaSet.to_set(self.sort,
                                         *(self.x(i) for i in range(self.n)))

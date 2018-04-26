@@ -70,7 +70,6 @@ def get_plot_div(g, graph_layout = nx.fruchterman_reingold_layout):
                         output_type = 'div')
 
 def nx_graph_to_plotly_fig(g, graph_layout = nx.fruchterman_reingold_layout):
-    # TODO: Here we currently make the assumption that the nodes are named 0...len(g)-1. Relax that assumption?
     pos = graph_layout(g)
     x_nodes = [pos[k][0] for k in g.nodes()]
     y_nodes = [pos[k][1] for k in g.nodes()]

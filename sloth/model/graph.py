@@ -210,6 +210,74 @@ variable.
                     cache.add(c)
         return visited == self.val
 
+    def succ_of(self, v, fld):
+        try:
+            return self.ptr[(self.resolve(v), fld)]
+        except KeyError:
+            return None
+
+    def are_ordered(self, ordered_fields, root, l, r):
+        """Return True iff `l` occurs before `r` in in-order traversal from `root`.
+
+        >>> g = Graph({0, 1, 2, 3, 4, 5, 6}, {(1, 'data'): 99, (1, 'left'): 0, (1, 'right'): 2, (2, 'data'): 99, (2, 'left'): 3, (2, 'right'): 4, (4, 'data'): 99, (4, 'left'): 5, (4, 'right'): 0, (5, 'data'): 99, (5, 'left'): 6, (5, 'right'): 0}, {'sl.tree.null': 0, 't': 1, 'u': 3, 'v': 6})
+        >>> g.are_ordered(['left','right'], 't', 'u', 'v')
+        True
+        >>> g.are_ordered(['left','right'], 't', 'v', 'u')
+        False
+
+        """
+
+        # TODO: Ordered check is extremely inefficient, should be improved at some point if we want to deal with larger graphs. Should just implement in-order traversal.
+        assert len(ordered_fields) == 2, \
+            'Currently no support for ordered traversal along {} fields'.format(len(ordered_fields))
+        for ancestor in self.val:
+            if not self.reach(ordered_fields, root, ancestor):
+                continue
+            trg1, trg2 = (self.succ_of(ancestor, fld) for fld in ordered_fields)
+            #print('Check if {} is ancestor of {}/{} by following paths from {}/{}'.format(ancestor, l, r, trg1, trg2))
+            if ((trg1 is not None) and (trg2 is not None)
+                and self.reach(ordered_fields, trg1, l)
+                and self.reach(ordered_fields, trg2, r)):
+                return True
+        else:
+            return False
+
+
+    def resolve(self, v):
+        "If v is a variable, look it up in the stack; if it is a val, return it unchanged."
+        if isinstance(v, str):
+            return self.s[v]
+        else:
+            assert isinstance(v, int)
+            return v
+
+    def reach(self, fields, src, trg):
+        """
+        >>> g = Graph({0, 1, 2, 3, 4, 5, 6}, {(1, 'data'): 99, (1, 'left'): 0, (1, 'right'): 2, (2, 'data'): 99, (2, 'left'): 3, (2, 'right'): 4, (4, 'data'): 99, (4, 'left'): 5, (4, 'right'): 0, (5, 'data'): 99, (5, 'left'): 6, (5, 'right'): 0}, {'sl.tree.null': 0, 't': 1, 'u': 3, 'v': 6})
+        >>> g.reach(['left','right'], 't', 'u')
+        True
+        >>> g.reach(['left','right'], 'v', 't')
+        False
+
+        """
+
+        src = self.resolve(src)
+        trg = self.resolve(trg)
+        visited = set()
+        frontier = {src}
+        while frontier:
+            #print(frontier)
+            if trg in frontier:
+                return True
+            frontier = {self.ptr.get((parent, fld), None)
+                        for parent in frontier
+                        for fld in fields}
+            frontier.discard(None)
+            frontier.difference_update(visited)
+            visited.update(frontier)
+        else:
+            return False
+
     def __str__(self):
         def summary(v):
             xs = ', '.join(x for x in self.s if self.s[x] == v)
@@ -258,9 +326,8 @@ variable.
         False
 
         """
-        try:
-            ptr_trg = self.ptr[(self.s[src], fld)]
-        except KeyError:
+        ptr_trg = self.succ_of(src, fld)
+        if ptr_trg is None:
             return False
         else:
             return ptr_trg == self.s[trg]

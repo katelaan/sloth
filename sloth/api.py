@@ -50,8 +50,8 @@ In addition there are various methods to help you find and interact with benchma
 ['../benchmarks/...]
 >>> find_benchmarks('list', 'seg') # doctest: +ELLIPSIS
 ['../benchmarks/list-boolean-closure/list-not-list-segs.smt2', '../benchmarks/list-boolean-closure/unsat-list-segs-not-list.smt2', ...]
->>> benchmark('unsat', 'segs-not-list')
-'../benchmarks/list-boolean-closure/unsat-list-segs-not-list.smt2'
+>>> benchmark('contains', '1234.smt2')
+'../benchmarks/tree-data/tree-contains1234.smt2'
 
 """
 
@@ -263,7 +263,7 @@ def evaluate_to_graph(input, ignore_null = False, override_bound = None):
     """
     >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
     >>> evaluate_to_graph(sl_expr)
-    Graph({0, 1, 2, 3}, {(1, 'next'): 2, (2, 'next'): 3, (3, 'next'): 0}, {'sl.list.null': 0, 'x': 1, 'y': 2, 'z': 3})
+    Graph({0, 1, 2, 3}, {(0, 'next'): 1, (1, 'next'): 2, (2, 'next'): 3}, {'sl.list.null': 3, 'x': 0, 'y': 1, 'z': 2})
 
     """
     m = solve(input, override_bound)
@@ -278,6 +278,7 @@ def z3_to_py(expr):
 
 def model_to_graph(model, ignore_null = False):
     return checks.graph_from_smt_model(model, ignore_null = ignore_null)
+    #return checks.canonical_graph(model, ignore_null = ignore_null)
 
 def stats(mod = None):
     """Print statistics about the given :class:`model.SmtModel`."""

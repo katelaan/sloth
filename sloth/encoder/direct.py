@@ -10,8 +10,6 @@
 
 """
 
-# FIXME: Ensure that the names x0, ... r_1, ... etc are unused!
-
 import itertools
 
 import z3
@@ -31,22 +29,23 @@ def is_bounded_heap_interpretation(config):
     ;; Delta_SL(3)
     (And
       ;; Global FP is the union of all field FPs
-      (X == Map(or, Map(or, Map(or, Xdata, Xleft), Xnext), Xright))
+      (_X ==
+      Map(or, Map(or, Map(or, _Xdata, _Xleft), _Xnext), _Xright))
       ;; Global FP is subset of {x_1,...x_n}
       (Map(=>,
-          X,
-          Store(Store(Store(K(Int, False), x0, True), x1, True),
-                x2,
+          _X,
+          Store(Store(Store(K(Int, False), _x0, True), _x1, True),
+                _x2,
                 True)) ==
       K(Int, True))
       ;; Null is not allocated
-      (Not(X[sl.list.null]))
+      (Not(_X[sl.list.null]))
       ;; Null is not allocated
-      (Not(X[sl.tree.null]))
+      (Not(_X[sl.tree.null]))
       ;; Field FPs for sl.list and sl.tree don't overlap
-      (K(Int, False) == Map(and, Xnext, Xleft))
+      (K(Int, False) == Map(and, _Xnext, _Xleft))
       ;; Field FPs for sl.list and sl.tree don't overlap
-      (K(Int, False) == Map(and, Xnext, Xright))
+      (K(Int, False) == Map(and, _Xnext, _Xright))
     )
 
     """
@@ -125,10 +124,10 @@ class DirectEncoding:
         """Constraint that y is n-reachable from x by first taking an fld-pointer.
 
         >>> print(de.rf(de.x(0), de.x(1), 'left'))
-        ;; x0 is reachable from x1 by first following field left
+        ;; _x0 is reachable from _x1 by first following field left
         (Or
-          (sl.tree.left(x0) == x1)
-          (And(Z[sl.tree.left(x0)], r_3(sl.tree.left(x0), x1)))
+          (sl.tree.left(_x0) == _x1)
+          (And(_Z[sl.tree.left(_x0)], _r_3(sl.tree.left(_x0), _x1)))
         )
 
         """
@@ -158,17 +157,17 @@ class DirectEncoding:
                                description = desc)
 
     def defineY(self, y):
-        """Tie `Z` to the footprint vector `y`
+        """Tie `_Z` to the footprint vector `y`
 
         >>> y = FPVector(de.fp_sort, prefix = 'Y', flds = 'next left right data'.split())
         >>> print(de.defineY(y))
-        ;; defineY: Z : SET(Int) equals the footprint parameters Y for sl.tree
+        ;; defineY: _Z : SET(Int) equals the footprint parameters Y for sl.tree
         (And
-          ;; All sl.tree footprints equal Z : SET(Int)
+          ;; All sl.tree footprints equal _Z : SET(Int)
           (And
-            (Z == Ydata)
-            (Z == Yleft)
-            (Z == Yright)
+            (_Z == Ydata)
+            (_Z == Yleft)
+            (_Z == Yright)
           )
           ;; All other footprints are empty
           (And
@@ -214,54 +213,54 @@ class DirectEncoding:
         """Define r_k as the k-step reachability relation within the footprint z.
 
         >>> print(de.R(1)) # doctest: +ELLIPSIS
-        ;; Interpret r_1 as 1-step reachability
+        ;; Interpret _r_1 as 1-step reachability
         (And
-          ;; 1-step reachability from x0 to x0
+          ;; 1-step reachability from _x0 to _x0
           ...
-          ;; 1-step reachability from x0 to x1
+          ;; 1-step reachability from _x0 to _x1
           (Iff
-            (r_1(x0, x1))
+            (_r_1(_x0, _x1))
             (And
-              (Z[x0])
+              (_Z[_x0])
               (Not
-                ;; x1 is a stop node
-                (Or(x1 == sl.tree.null, x1 == u, x1 == v))
+                ;; _x1 is a stop node
+                (Or(_x1 == sl.tree.null, _x1 == u, _x1 == v))
               )
-              ;; x1 is a ['left', 'right']-successor of x0
+              ;; _x1 is a ['left', 'right']-successor of _x0
               (Or
-                (sl.tree.left(x0) == x1)
-                (sl.tree.right(x0) == x1)
+                (sl.tree.left(_x0) == _x1)
+                (sl.tree.right(_x0) == _x1)
               )
             )
           )
           ...
-          ;; 1-step reachability from x2 to x2
+          ;; 1-step reachability from _x2 to _x2
           (Iff
-            (r_1(x2, x2))
+            (_r_1(_x2, _x2))
             (...)
           )
         )
         >>> print(de.R(3)) # doctest: +ELLIPSIS
-        ;; Interpret r_3 as 3-step reachability
+        ;; Interpret _r_3 as 3-step reachability
         (And
-          ;; 3-step reachability from x0 to x0
+          ;; 3-step reachability from _x0 to _x0
           ...
-          ;; 3-step reachability from x0 to x1
+          ;; 3-step reachability from _x0 to _x1
           (Iff
-            (r_3(x0, x1))
-            (Or(r_2(x0, x1),
-               Or(And(r_2(x0, x0), r_1(x0, x1)),
-                  And(r_2(x0, x1), r_1(x1, x1)),
-                  And(r_2(x0, x2), r_1(x2, x1)))))
+            (_r_3(_x0, _x1))
+            (Or(_r_2(_x0, _x1),
+               Or(And(_r_2(_x0, _x0), _r_1(_x0, _x1)),
+                  And(_r_2(_x0, _x1), _r_1(_x1, _x1)),
+                  And(_r_2(_x0, _x2), _r_1(_x2, _x1)))))
           )
           ...
-          ;; 3-step reachability from x2 to x2
+          ;; 3-step reachability from _x2 to _x2
           (Iff
-            (r_3(x2, x2))
-            (Or(r_2(x2, x2),
-               Or(And(r_2(x2, x0), r_1(x0, x2)),
-                  And(r_2(x2, x1), r_1(x1, x2)),
-                  And(r_2(x2, x2), r_1(x2, x2)))))
+            (_r_3(_x2, _x2))
+            (Or(_r_2(_x2, _x2),
+               Or(And(_r_2(_x2, _x0), _r_1(_x0, _x2)),
+                  And(_r_2(_x2, _x1), _r_1(_x1, _x2)),
+                  And(_r_2(_x2, _x2), _r_1(_x2, _x2)))))
           )
         )
 
@@ -306,11 +305,11 @@ class DirectEncoding:
         >>> print(de.reach())
         ;; Define reachability predicates
         (And
-          ;; Interpret r_1 as 1-step reachability
+          ;; Interpret _r_1 as 1-step reachability
           ...
-          ;; Interpret r_2 as 2-step reachability
+          ;; Interpret _r_2 as 2-step reachability
           ...
-          ;; Interpret r_3 as 3-step reachability
+          ;; Interpret _r_3 as 3-step reachability
           ...
         )
 
@@ -322,11 +321,11 @@ class DirectEncoding:
         """Formalize under which circumstances Z must be empty.
 
         >>> print(de.emptyZ())
-        ;; The root is such that Z must be empty
+        ;; The root is such that _Z : SET(Int) must be empty
         (Or
           ;; t is a stop node
           (Or(t == sl.tree.null, t == u, t == v))
-          (And(Not(x0 == t), Not(x1 == t), Not(x2 == t)))
+          (And(Not(_x0 == t), Not(_x1 == t), Not(_x2 == t)))
         )
 
         """
@@ -334,48 +333,44 @@ class DirectEncoding:
         return c.Or(
             self.is_stop_node(root),
             z3.And([z3.Not(x_i == root) for x_i in self.xs()]),
-            description = 'The root is such that Z must be empty'
+            description = 'The root is such that {} must be empty'.format(self.Z)
         )
 
     def footprint(self):
         """Define the footprint set `Z` as what's reachble from the root node.
 
         >>> print(de.footprint())
-        ;; footprint: Define the set Z : SET(Int) for root t and nodes x0,...,x2
+        ;; footprint: Define the set _Z : SET(Int) for root t and nodes _x0,...,_x2
         (And
-          ;; Z : SET(Int) is a subset of {x0,...,x2}
+          ;; _Z : SET(Int) is a subset of {_x0,...,_x2}
           (Map(=>,
-              Z,
-              Store(Store(Store(K(Int, False), x0, True), x1, True),
-                    x2,
+              _Z,
+              Store(Store(Store(K(Int, False), _x0, True), _x1, True),
+                    _x2,
                     True)) ==
           K(Int, True))
-          ;; Define when Z : SET(Int) is empty
+          ;; Define when _Z : SET(Int) is empty
           (Implies
-            ;; The root is such that Z must be empty
-            (Or
-              ;; t is a stop node
-              (Or(t == sl.tree.null, t == u, t == v))
-              (And(Not(x0 == t), Not(x1 == t), Not(x2 == t)))
-            )
-            (Z == K(Int, False))
+            ;; The root is such that _Z : SET(Int) must be empty
+            ...
+            (_Z == K(Int, False))
           )
-          ;; If the root is allocated, Z : SET(Int) contains exactly what's reachable from the root
+          ;; If the root is allocated, _Z : SET(Int) contains exactly what's reachable from the root
           (Implies
             (Not
-              ;; The root is such that Z must be empty
+              ;; The root is such that _Z : SET(Int) must be empty
               ...
             )
-            ;; Everything in Z : SET(Int) is reachable from the root t
+            ;; Everything in _Z : SET(Int) is reachable from the root t
             (And
               (Iff
-                (Z[x0])
-                (Or(t == x0, r_3(t, x0)))
+                (_Z[_x0])
+                (Or(t == _x0, _r_3(t, _x0)))
               )
               ...
               (Iff
-                (Z[x2])
-                (Or(t == x2, r_3(t, x2)))
+                (_Z[_x2])
+                (Or(t == _x2, _r_3(t, _x2)))
               )
             )
           )
@@ -424,22 +419,22 @@ class DirectEncoding:
         (And
           ;; If a node has two identical successors they are both null
           (And
-            (Implies(Z[x0],
-                    Implies(sl.tree.left(x0) == sl.tree.right(x0),
-                            sl.tree.left(x0) == sl.tree.null)))
+            (Implies(_Z[_x0],
+                    Implies(sl.tree.left(_x0) == sl.tree.right(_x0),
+                            sl.tree.left(_x0) == sl.tree.null)))
             ...
           )
           ;; If two nodes share a successor it's null
           (And
-            (Implies(And(Z[x0], Z[x1], Not(x0 == x1)),
-                    And(Implies(sl.tree.left(x0) == sl.tree.left(x1),
-                                sl.tree.left(x0) == sl.tree.null),
-                        Implies(sl.tree.left(x0) == sl.tree.right(x1),
-                                sl.tree.left(x0) == sl.tree.null),
-                        Implies(sl.tree.right(x0) == sl.tree.left(x1),
-                                sl.tree.right(x0) == sl.tree.null),
-                        Implies(sl.tree.right(x0) == sl.tree.right(x1),
-                                sl.tree.right(x0) == sl.tree.null))))
+            (Implies(And(_Z[_x0], _Z[_x1], Not(_x0 == _x1)),
+                    And(Implies(sl.tree.left(_x0) == sl.tree.left(_x1),
+                                sl.tree.left(_x0) == sl.tree.null),
+                        Implies(sl.tree.left(_x0) == sl.tree.right(_x1),
+                                sl.tree.left(_x0) == sl.tree.null),
+                        Implies(sl.tree.right(_x0) == sl.tree.left(_x1),
+                                sl.tree.right(_x0) == sl.tree.null),
+                        Implies(sl.tree.right(_x0) == sl.tree.right(_x1),
+                                sl.tree.right(_x0) == sl.tree.null))))
             ...
           )
         )
@@ -494,21 +489,21 @@ class DirectEncoding:
         """The structure rooted in `root` restricted to footprint `Z` is acyclic.
 
         >>> print(de.structure()) # doctest: +ELLIPSIS
-        ;; structure: Z : SET(Int) is an acyclic data structure rooted in t
+        ;; structure: _Z : SET(Int) is an acyclic data structure rooted in t
         (And
-          ;; The root is in Z : SET(Int)
+          ;; The root is in _Z : SET(Int)
           (Implies
             (Not
               ;; t is a stop node
               (Or(t == sl.tree.null, t == u, t == v))
             )
-            (Z[t])
+            (_Z[t])
           )
           ;; oneparent: Every non-null nodes has at most one incoming pointer
           ...
           ;; There is no cycle from the root to the root
           (Not
-            (r_3(t, t))
+            (_r_3(t, t))
           )
         )
 
@@ -545,23 +540,23 @@ class DirectEncoding:
           (sl.tree.right(x_p) == x_stop)
           ;; A right-descendant of x_p is the parent of the stop node x_stop
           (Or
-            ;; x0 is the descendant that is the parent of x_stop
+            ;; _x0 is the descendant that is the parent of x_stop
             (And
-              ;; x_p is reachable from x0 by first following field right
+              ;; x_p is reachable from _x0 by first following field right
               (Or
-                (sl.tree.right(x_p) == x0)
-                (And(Z[sl.tree.right(x_p)], r_3(sl.tree.right(x_p), x0)))
+                (sl.tree.right(x_p) == _x0)
+                (And(_Z[sl.tree.right(x_p)], _r_3(sl.tree.right(x_p), _x0)))
               )
-              (Z[x0])
-              ;; x_stop is a ['left', 'right']-successor of x0
+              (_Z[_x0])
+              ;; x_stop is a ['left', 'right']-successor of _x0
               (Or
-                (sl.tree.left(x0) == x_stop)
-                (sl.tree.right(x0) == x_stop)
+                (sl.tree.left(_x0) == x_stop)
+                (sl.tree.right(_x0) == x_stop)
               )
             )
-            ;; x1 is the descendant that is the parent of x_stop
+            ;; _x1 is the descendant that is the parent of x_stop
             ...
-            ;; x2 is the descendant that is the parent of x_stop
+            ;; _x2 is the descendant that is the parent of x_stop
             ...
           )
         )
@@ -597,27 +592,27 @@ class DirectEncoding:
     occur in the same order in the tree induced by `Z` as in `stops`.
 
         >>> print(de.stop_nodes_are_ordered_leaves()) # doctest: +ELLIPSIS
-        ;; ordered: All adjacent pairs of stop nodes in [u, v] are ordered in the induced tree of Z : SET(Int)
+        ;; ordered: All adjacent pairs of stop nodes in [u, v] are ordered in the induced tree of _Z : SET(Int)
         (And
-          ;; Stop nodes u and v have an LCA in Z : SET(Int)
+          ;; Stop nodes u and v have an LCA in _Z : SET(Int)
           (Or
-            ;; x0 is the LCA of u and v
+            ;; _x0 is the LCA of u and v
             (And
-              (Z[x0])
-              ;; fstop: x0 is a left-ancestor of the stop node u
+              (_Z[_x0])
+              ;; fstop: _x0 is a left-ancestor of the stop node u
               ...
-              ;; fstop: x0 is a right-ancestor of the stop node v
+              ;; fstop: _x0 is a right-ancestor of the stop node v
               ...
             )
-            ;; x1 is the LCA of u and v
+            ;; _x1 is the LCA of u and v
             (And
-              (Z[x1])
-              ;; fstop: x1 is a left-ancestor of the stop node u
+              (_Z[_x1])
+              ;; fstop: _x1 is a left-ancestor of the stop node u
               ...
-              ;; fstop: x1 is a right-ancestor of the stop node v
+              ;; fstop: _x1 is a right-ancestor of the stop node v
               ...
             )
-            ;; x2 is the LCA of u and v
+            ;; _x2 is the LCA of u and v
             ...
           )
         )
@@ -679,61 +674,61 @@ class DirectEncoding:
         (And
           ;; If the tree is non-empty, it contains the node u
           (Or
-            ;; x0 is alloced and one of its descendants is node u
+            ;; _x0 is alloced and one of its descendants is node u
             (And
-              (Z[x0])
-              ;; u is a ['left', 'right']-successor of x0
+              (_Z[_x0])
+              ;; u is a ['left', 'right']-successor of _x0
               (Or
-                (sl.tree.left(x0) == u)
-                (sl.tree.right(x0) == u)
+                (sl.tree.left(_x0) == u)
+                (sl.tree.right(_x0) == u)
               )
             )
-            ;; x1 is alloced and one of its descendants is node u
+            ;; _x1 is alloced and one of its descendants is node u
             (And
-              (Z[x1])
-              ;; u is a ['left', 'right']-successor of x1
+              (_Z[_x1])
+              ;; u is a ['left', 'right']-successor of _x1
               (Or
-                (sl.tree.left(x1) == u)
-                (sl.tree.right(x1) == u)
+                (sl.tree.left(_x1) == u)
+                (sl.tree.right(_x1) == u)
               )
             )
-            ;; x2 is alloced and one of its descendants is node u
+            ;; _x2 is alloced and one of its descendants is node u
             (And
-              (Z[x2])
-              ;; u is a ['left', 'right']-successor of x2
+              (_Z[_x2])
+              ;; u is a ['left', 'right']-successor of _x2
               (Or
-                (sl.tree.left(x2) == u)
-                (sl.tree.right(x2) == u)
+                (sl.tree.left(_x2) == u)
+                (sl.tree.right(_x2) == u)
               )
             )
           )
           ;; If the tree is non-empty, it contains the node v
           (Or
-            ;; x0 is alloced and one of its descendants is node v
+            ;; _x0 is alloced and one of its descendants is node v
             (And
-              (Z[x0])
-              ;; v is a ['left', 'right']-successor of x0
+              (_Z[_x0])
+              ;; v is a ['left', 'right']-successor of _x0
               (Or
-                (sl.tree.left(x0) == v)
-                (sl.tree.right(x0) == v)
+                (sl.tree.left(_x0) == v)
+                (sl.tree.right(_x0) == v)
               )
             )
-            ;; x1 is alloced and one of its descendants is node v
+            ;; _x1 is alloced and one of its descendants is node v
             (And
-              (Z[x1])
-              ;; v is a ['left', 'right']-successor of x1
+              (_Z[_x1])
+              ;; v is a ['left', 'right']-successor of _x1
               (Or
-                (sl.tree.left(x1) == v)
-                (sl.tree.right(x1) == v)
+                (sl.tree.left(_x1) == v)
+                (sl.tree.right(_x1) == v)
               )
             )
-            ;; x2 is alloced and one of its descendants is node v
+            ;; _x2 is alloced and one of its descendants is node v
             (And
-              (Z[x2])
-              ;; v is a ['left', 'right']-successor of x2
+              (_Z[_x2])
+              ;; v is a ['left', 'right']-successor of _x2
               (Or
-                (sl.tree.left(x2) == v)
-                (sl.tree.right(x2) == v)
+                (sl.tree.left(_x2) == v)
+                (sl.tree.right(_x2) == v)
               )
             )
           )
@@ -781,7 +776,7 @@ class DirectEncoding:
           )
           ;; All leaves are stop nodes
           ...
-          ;; ordered: All adjacent pairs of stop nodes in [u, v] are ordered in the induced tree of Z : SET(Int)
+          ;; ordered: All adjacent pairs of stop nodes in [u, v] are ordered in the induced tree of _Z : SET(Int)
           ...
         )
 
@@ -811,11 +806,11 @@ class DirectEncoding:
         """Does the unary data predicate `pred` hold on `Z`?
 
         >>> print(de.unary_data_pred_holds(sl.alpha < 5))
-        ;; The unary data predicate sl.alpha < 5 holds on Z : SET(Int)
+        ;; The unary data predicate sl.alpha < 5 holds on _Z : SET(Int)
         (And
-          (Implies(Z[x0], sl.tree.data(x0) < 5))
-          (Implies(Z[x1], sl.tree.data(x1) < 5))
-          (Implies(Z[x2], sl.tree.data(x2) < 5))
+          (Implies(_Z[_x0], sl.tree.data(_x0) < 5))
+          (Implies(_Z[_x1], sl.tree.data(_x1) < 5))
+          (Implies(_Z[_x2], sl.tree.data(_x2) < 5))
         )
 
         """
@@ -838,19 +833,19 @@ class DirectEncoding:
         """Does the binary data predicate `pred` hold on `Z`?
 
         >>> print(de.binary_data_pred_holds('left', sl.alpha < sl.beta))
-        ;; The binary data predicate sl.alpha < sl.beta holds for left descendants in Z : SET(Int)
+        ;; The binary data predicate sl.alpha < sl.beta holds for left descendants in _Z : SET(Int)
         (And
           (Implies
             (And
-              (Z[x0])
-              (Z[x1])
-              ;; x0 is reachable from x1 by first following field left
+              (_Z[_x0])
+              (_Z[_x1])
+              ;; _x0 is reachable from _x1 by first following field left
               (Or
-                (sl.tree.left(x0) == x1)
-                (And(Z[sl.tree.left(x0)], r_3(sl.tree.left(x0), x1)))
+                (sl.tree.left(_x0) == _x1)
+                (And(_Z[sl.tree.left(_x0)], _r_3(sl.tree.left(_x0), _x1)))
               )
             )
-            (sl.tree.data(x0) < sl.tree.data(x1))
+            (sl.tree.data(_x0) < sl.tree.data(_x1))
           )
           ...
         )
