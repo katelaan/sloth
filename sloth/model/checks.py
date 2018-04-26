@@ -84,7 +84,14 @@ def graph_from_smt_model(m, ignore_null = False, skip_fn = is_aux_var):
                     for loc in sm.locs:
                         if sm.is_alloced(loc, fld):
                             #print('{} : {} -[{}]> {}'.format(loc, type(loc).__name__, fld, fn(loc)))
-                            ptrs[(loc.as_long(), fld)] = fn(loc).as_long()
+                            src = loc.as_long()
+                            #print('{} {}'.format(loc, fn(loc)))
+                            try:
+                                trg = fn(loc).as_long()
+                            except AttributeError:
+                                raise Exception("During lookup of {} : {} in {}: Can't convert {} : {} to long".format(loc, type(loc).__name__, fn, fn(loc), type(fn(loc)).__name__)) from None
+                            else:
+                                ptrs[(src, fld)] = trg
                         else:
                             #print('{}: {} not alloced'.format(loc, fld))
                             pass

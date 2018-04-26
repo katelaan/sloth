@@ -176,7 +176,7 @@ class LocInterpretation:
     def __init__(self, struct, const_registry, z3_model):
         self.struct = struct
         self.z3_model = z3_model
-        self._locs = []
+        self._locs = [] # Note: Initialized properly in subclasses
         self.labeling = {}
 
         # Initialize constants based on the registry & the model
@@ -202,8 +202,7 @@ class LocInterpretation:
         return bool(self._locs)
 
     def __iter__(self):
-        for l in self._locs:
-            yield l
+        return iter(sorted(self._locs, key = lambda v: int(str(v))))
 
     def __len__(self):
         return len(self._locs)
@@ -214,7 +213,9 @@ class LocInterpretation:
                 return "{}:{}".format(k,v)
             else:
                 return str(k)
-        return ", ".join(map(lambda i : node_repr(*i),self.labeling.items()))
+        ordered = sorted(self.labeling.items(),
+                         key = lambda i: int(str(i[0])))
+        return ", ".join(map(lambda i : node_repr(*i), ordered))
 
     def empty(self):
         """Is this sort interpreted by an empty set of locations (or not at all)?"""

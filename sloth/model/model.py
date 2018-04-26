@@ -28,13 +28,14 @@ class StructModel:
 
     """
 
-    def __init__(self, struct, const_registry, z3_model, filter_sub_footprints = True):
+    def __init__(self, struct, const_registry, z3_model, filter_sub_footprints = True, restrict_fns_to_footprints = True):
+        self.filter_sub_footprints = filter_sub_footprints
+        self.restrict_fns_to_footprints = restrict_fns_to_footprints
         self.struct = struct
         self.z3_model = z3_model
         self.locs = struct.LocInterpretation(struct, const_registry, z3_model)
         self.funcs = {}
         self._init_func_wrappers()
-        self.filter_sub_footprints = filter_sub_footprints
         fmt = 'Initialized {} model with locations {}, null node {}'
         logger.info(fmt.format(struct.predicate(), list(self.locs), self.null()))
 
@@ -95,12 +96,7 @@ class StructModel:
         return self.funcs[fld]
 
     def footprint(self, arr):
-        assert(isinstance(arr, z3.ArrayRef))
-        if model_utils.val_of(arr, self.z3_model) is not None:
-            # TODO: More efficient way to evaluate array?
-            for loc in self:
-                if self.z3_model.eval(arr[loc]):
-                    yield loc
+        return model_utils.eval_footprint(self.z3_model, self.locs, arr)
 
     def is_alloced(self, loc, fld):
         match = None
@@ -113,8 +109,17 @@ class StructModel:
         return loc in self.footprint(match)
 
     def _init_func_wrappers(self):
-        self.funcs = { fld : model_utils.FuncWrapper(self.z3_model, self.struct.heap_fn(fld))
-                       for fld in self.struct.fields }
+        for fld in self.struct.fields:
+            if self.restrict_fns_to_footprints:
+                arr = self.struct.fp_sort[encoder.GlobalSymbols.global_fp_prefix + fld].ref
+                locs = list(self.footprint(arr))
+                logger.debug('Will init {}-func on locs {}'.format(fld, locs))
+            else:
+                locs = None
+
+            self.funcs[fld] = model_utils.FuncWrapper(self.z3_model,
+                                                      self.struct.heap_fn(fld),
+                                                      locs)
 
 
 ###############################################################################
@@ -136,11 +141,20 @@ class SmtModel:
 
     def __init__(self, z3_model, const_registry, structs, filter_aux_vars = True):
         self.z3_model = z3_model
+
+        # If the global FP vars are defined, we limit function
+        # interpretation to these footprints. This reflects the SL
+        # partial function semantics: Field function should only be
+        # defined on allocated nodes
+        restrict_fns_to_footprints = z3_model.get_interp(next(iter(structs)).fp_sort[encoder.GlobalSymbols.global_fp_prefix].ref) is not None
+
         logger.info('Constructing adapter for Z3 model')
         logger.debug('Model: {}'.format(z3_model))
         self.structs = structs
         self.struct_models = {
-            s : StructModel(s, const_registry, z3_model, filter_sub_footprints = filter_aux_vars)
+            s : StructModel(s, const_registry, z3_model,
+                            filter_sub_footprints = filter_aux_vars,
+                            restrict_fns_to_footprints = restrict_fns_to_footprints)
             for s in structs
         }
         # FIXME: This breaks for the lambda backend if we have multiple sorts
@@ -179,7 +193,8 @@ class SmtModel:
         ordered_models = sorted(self.struct_models.items(),
                                 key = lambda s : s[0].name)
         struct_strs = (str(s[1]) for s in ordered_models)
-        data_str = ', '.join(['{}={}'.format(*i) for i in self.data.items()])
+        lexicographic_data = sorted(self.data.items(), key=lambda i: str(i[0]))
+        data_str = ', '.join(['{}={}'.format(*i) for i in lexicographic_data])
         if data_str:
             data_lines = ('Data [\n'
                           + utils.indented(
