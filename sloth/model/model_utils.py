@@ -57,10 +57,11 @@ class FuncWrapper:
             pairs = [(loc, z3_model.eval(fn(loc))) for loc in locs]
             #print('Func vals: {}'.format(pairs))
             self.defined_vals = dict(pairs)
-            self.else_val = as_list[-1]
+            #self.else_val = as_list[-1]
         else:
-            self.else_val = None
+            #self.else_val = None
             self.defined_vals = {}
+        self.else_val = None
 
     def __call__(self, loc):
         if loc in self.defined_vals:

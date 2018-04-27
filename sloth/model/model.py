@@ -146,7 +146,7 @@ class SmtModel:
         # interpretation to these footprints. This reflects the SL
         # partial function semantics: Field function should only be
         # defined on allocated nodes
-        restrict_fns_to_footprints = z3_model.get_interp(next(iter(structs)).fp_sort[encoder.GlobalSymbols.global_fp_prefix].ref) is not None
+        restrict_fns_to_footprints = self._defines_fps(z3_model, structs)
 
         logger.info('Constructing adapter for Z3 model')
         logger.debug('Model: {}'.format(z3_model))
@@ -179,6 +179,19 @@ class SmtModel:
             self.data = { c : model_utils.val_of(c, z3_model) for c in non_lang_diff }
         else:
             self.data = dict()
+
+    def _defines_fps(self, z3_model, structs):
+        sort = next(iter(structs)).fp_sort
+
+        flds = utils.flatten(struct.fields for struct in structs)
+        for fld in flds:
+            fp_arr = sort[encoder.GlobalSymbols.global_fp_prefix + fld].ref
+            #print('Checking {} --> {}'.format(fld, fp_arr))
+            if z3_model.get_interp(fp_arr) is not None:
+                return True
+        else:
+            #print('No FP defined')
+            return False
 
     def __len__(self):
         """Total number of locations in all sorts combined."""

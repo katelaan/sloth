@@ -90,7 +90,7 @@ def get_plot_div(g, graph_layout = 'spring'):
 def nx_graph_to_plotly_fig(g, graph_layout = 'spring'):
     layout_fn = layout_fns[graph_layout]
     pos = layout_fn(g)
-    print(pos)
+    #print(pos)
     x_nodes = [pos[k][0] for k in g.nodes()]
     y_nodes = [pos[k][1] for k in g.nodes()]
     labels = [g.node[k]['label'] for k in g.nodes()]
