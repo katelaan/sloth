@@ -183,9 +183,9 @@ False
 
 Using different heads leads to separate structures:
 
->>> g = eval_(sl.sepcon(list_ptr_seq(x, sl.list.null, 2), list_ptr_seq(y, sl.list.null, 2, loc_prefix='b', data_prefix='e'))); print_all_named_ptrs(g)
+>>> g = eval_(sl.sepcon(list_of_length(2, x, sl.list.null), list_of_length(2, y, sl.list.null, loc_prefix='b', data_prefix='e'))); print_all_named_ptrs(g)
 a1 -[next]-> sl.list.null, b1 -[next]-> sl.list.null, x -[next]-> a1, y -[next]-> b1
->>> g = eval_(sl.sepcon(list_ptr_seq(x, sl.list.null, 2), list_ptr_seq(y, sl.list.null, 2, loc_prefix='b', data_prefix='e'), list_ptr_seq(z, sl.list.null, 2, loc_prefix='c', data_prefix='f'))); print_all_named_ptrs(g)
+>>> g = eval_(sl.sepcon(list_of_length(2, x, sl.list.null), list_of_length(2, y, sl.list.null, loc_prefix='b', data_prefix='e'), list_of_length(2, z, sl.list.null, loc_prefix='c', data_prefix='f'))); print_all_named_ptrs(g)
 a1 -[next]-> sl.list.null, b1 -[next]-> sl.list.null, c1 -[next]-> sl.list.null, x -[next]-> a1, y -[next]-> b1, z -[next]-> c1
 
 With negation:
@@ -244,7 +244,7 @@ classically conjoining allocation of three pointers:
 (Multiple results are possible depending on whether null is different
 from u and v, is the same as u or is the same as v.)
 
->>> alloc3 = full_tree_fragment(t, [u, v], 3)
+>>> alloc3 = tree_of_size(3, t, u, v)
 >>> g = eval_(z3.And(alloc3, sl.tree.dpred.unary2(sl.alpha == 99, t, u, v)))
 >>> (g.succ_of('t', 'data'), g.succ_of(g.succ_of('t', 'left'), 'data'), g.succ_of(g.succ_of('t', 'right'), 'data'))
 (99, 99, 99)
@@ -295,7 +295,7 @@ and list nodes don't coincide.)
 A mixed assertion where the allocation is fully determined through a
 classical conjunction:
 
->>> g = eval_(z3.And(sl.sepcon(full_tree_fragment(t, [], 1, loc_prefix = 't', data_prefix = 'td'), list_ptr_seq(x, sl.list.null, 2)), sl.sepcon(sl.tree(t), sl.list(x)))); print_all_named_ptrs(g)
+>>> g = eval_(z3.And(sl.sepcon(tree_of_size(1, t, loc_prefix = 't', data_prefix = 'td'), list_of_length(2, x, sl.list.null)), sl.sepcon(sl.tree(t), sl.list(x)))); print_all_named_ptrs(g)
 a1 -[next]-> sl.list.null, t -[left]-> sl.tree.null, t -[right]-> sl.tree.null, x -[next]-> a1
 
 """

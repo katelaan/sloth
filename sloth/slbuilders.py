@@ -13,18 +13,18 @@ import z3
 from .api import *
 from .utils import utils
 
-def list_ptr_seq(src, trg, length, with_data = True, loc_prefix = 'a', data_prefix = 'd'):
+def list_of_length(length, src, trg, with_data = True, loc_prefix = 'a', data_prefix = 'd'):
     """Return expression for a sequence of `length` pointers from `src` to `trg`.
 
     Whether or not data allocation is included is controlled by the
     `with_data` flag (True by default).
 
-    >>> x, y = sl.list.locs('x y'); list_ptr_seq(x, y, 2, loc_prefix = 'z_')
+    >>> x, y = sl.list.locs('x y'); list_of_length(2, x, y, loc_prefix = 'z_')
     sl.sepcon(sl.sepcon(sl.list.next(x, z_1),
                         sl.list.next(z_1, y)),
               sl.sepcon(sl.list.data(x, d0),
                         sl.list.data(z_1, d1)))
-    >>> list_ptr_seq(x, y, 2, loc_prefix = 'z_', with_data = False)
+    >>> list_of_length(2, x, y, loc_prefix = 'z_', with_data = False)
     sl.sepcon(sl.list.next(x, z_1), sl.list.next(z_1, y))
 
     """
@@ -52,7 +52,7 @@ def list_ptr_seq(src, trg, length, with_data = True, loc_prefix = 'a', data_pref
         expr = sl.sepcon(expr, data_expr)
     return expr
 
-def full_tree_fragment(root, stops, size, with_data = True, loc_prefix = 'a', data_prefix = 'd'):
+def tree_of_size(size, root, *stops, with_data = True, loc_prefix = 'a', data_prefix = 'd'):
     """Return expression for a tree segment of size `size` rooted in `root`.
 
     If `stops` is non-empty, the given stop nodes are used as the
@@ -64,17 +64,17 @@ def full_tree_fragment(root, stops, size, with_data = True, loc_prefix = 'a', da
     Whether or not data allocation is included is controlled by the
     `with_data` flag (True by default).
 
-    >>> t, u, v = sl.tree.locs('t u v'); full_tree_fragment(t, [], 2, with_data = False)
+    >>> t, u, v = sl.tree.locs('t u v'); tree_of_size(2, t, with_data = False)
     sl.sepcon(sl.sepcon(sl.tree.left(t, a1),
                         sl.tree.right(t, sl.tree.null)),
               sl.sepcon(sl.tree.left(a1, sl.tree.null),
                         sl.tree.right(a1, sl.tree.null)))
-    >>> full_tree_fragment(t, [u, v], 2, with_data = False)
+    >>> tree_of_size(2, t, u, v, with_data = False)
     sl.sepcon(sl.sepcon(sl.tree.left(t, a1),
                         sl.tree.right(t, sl.tree.null)),
               sl.sepcon(sl.tree.left(a1, u),
                         sl.tree.right(a1, v)))
-    >>> full_tree_fragment(t, [u, v], 2, with_data = True)
+    >>> tree_of_size(2, t, u, v, with_data = True)
     sl.sepcon(sl.sepcon(sl.tree.left(t, a1),
                         sl.sepcon(sl.tree.right(t, sl.tree.null),
                                   sl.tree.data(t, d0))),

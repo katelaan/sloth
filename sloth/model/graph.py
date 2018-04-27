@@ -188,6 +188,11 @@ class Graph:
         return self.ptr[(self.s[src_var], fld)] == self.data[data_var]
 
 
+    def vars_at(self, v):
+        for x, sx in self.s.items():
+            if sx == v:
+                yield x
+
     def is_garbagefree(self):
         """Returns true iff all members of `val` are reachable from a
 variable.
@@ -215,6 +220,10 @@ variable.
             return self.ptr[(self.resolve(v), fld)]
         except KeyError:
             return None
+
+    def successors(self, v, flds):
+        nodes = (self.succ_of(v, fld) for fld in flds)
+        return [node for node in nodes if node is not None]
 
     def are_ordered(self, ordered_fields, root, l, r):
         """Return True iff `l` occurs before `r` in in-order traversal from `root`.

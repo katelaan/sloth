@@ -213,6 +213,9 @@ class SmtDecls:
         self.funs = list(funs)
         self.sorts = list(sorts)
 
+    def __repr__(self):
+        return 'SmtDecls({!r}, {!r}, {!r})'.format(self.consts, self.funs, self.sorts)
+
     def _to_ref(self, c):
         if isinstance(c, z3.ExprRef):
             return c
@@ -254,6 +257,27 @@ class Z3Input:
             self.decls = SmtDecls.from_iterable(decls)
         self.structs = astutils.structs_in_ast(self.encoded_ast)
 
+    def _to_string(self, repr_constraint = False):
+        if self.encoded_ast is not None:
+            enc = ',\n    encoded_ast = ' + repr(self.encoded_ast)
+        else:
+            enc = ''
+        if self.decls is not None:
+            decls = ',\n    decls = ' + repr(self.decls)
+        else:
+            decls = ''
+        if repr_constraint:
+            constraint = repr(self.constraint)
+        else:
+            constraint = to_commented_z3_string(self.constraint)
+        return 'Z3Input({}{}{})'.format(constraint, enc, decls)
+
+    def __str__(self):
+        return self._to_string(False)
+
+    def __repr__(self):
+        return self._to_string(True)
+
     def to_smt2_string(self, check_sat = True, get_model = True, minify = False):
         cmds = ''
         if check_sat:
@@ -275,9 +299,11 @@ class Z3Input:
     def to_z3_expr(self):
         return self.constraint.to_z3_expr()
 
-    def to_file(self, filename, check_sat = True, get_model = True, minify = False):
+    def to_file(self, filename, check_sat = True, get_model = True, minify = False, verbose = False):
         with open(filename, 'w') as f:
             f.write(self.to_smt2_string(check_sat, get_model, minify))
+        if verbose:
+            print('Wrote encoding to "{}".'.format(filename))
 
     def all_consts(self):
         """Return the set of all constants present in the encoded SL expr or introduced in the encodeing"""
