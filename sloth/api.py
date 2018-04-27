@@ -290,7 +290,7 @@ def stats(mod = None):
 
 iplot_initialized = False
 
-def iplot(mod):
+def iplot(mod, layout = None):
     global iplot_initialized
     if not iplot_initialized:
         from plotly.offline import init_notebook_mode
@@ -298,7 +298,10 @@ def iplot(mod):
         iplot_initialized = True
 
     if isinstance(mod, model_module.SmtModel) or isinstance(mod, graph.Graph):
-        plotter.iplot_model(mod)
+        if layout is not None:
+            plotter.iplot_model(mod, graph_layout = layout)
+        else:
+            plotter.iplot_model(mod)
     else:
         raise ApiException("Cannot plot {}".format(type(mod).__name__))
 
@@ -354,6 +357,9 @@ def cat(filename):
     with open(filename, "r") as f:
         return f.read()
 
+def show(filename):
+    print(cat(filename))
+
 def verbose():
     logger.set_level(logger.INFO)
 
@@ -362,60 +368,3 @@ def vverbose():
 
 def quiet():
     logger.set_level(logger.WARN)
-
-def dump(encoding, file = None):
-    pass
-
-###############################################################################
-# Test functions
-###############################################################################
-
-def _print_error_report(task_desc, e, bm, p):
-    import traceback
-    print("#"*80)
-    print("{}. Benchmark:".format(task_desc))
-    print(cat(bm))
-    print("Parse result:")
-    print(p)
-    print("Exception: {}".format(e))
-    print("Trace:")
-    traceback.print_exc()
-    print("#"*80)
-    print("#"*80)
-
-def try_encode_all():
-    with utils.stats({"success" : "successes", "fail" : "failures"}) as stats:
-        for bm in parseable_benchmarks():
-            p = parse(bm)
-            print(bm)
-            try:
-                _ = encode(p, 1)
-                stats["success"] += [bm]
-            except Exception as e:
-                _print_error_report("Encoding failed", e, bm, p)
-                stats["fail"] += [bm]
-
-def try_run_all(backend = consts.LAMBDA_BACKEND, max_depth = 3):
-    events = {"success" : "successes",
-              "efail" : "encoding failures",
-              "sfail" : "solver failures",
-              "wrong" : "unexpected results"}
-    with utils.stats(events) as stats:
-        for bm in parseable_benchmarks():
-            p = parse(bm)
-            print(bm)
-            try:
-                _ = encode(p, 1)
-            except Exception as e:
-                print("Encoding failed. Aborting.")
-                stats["efail"] += [bm]
-            else:
-                try:
-                    m = solve(p, max_depth)
-                    if (m is None) == ("unsat" in bm):
-                        stats["success"] += [bm]
-                    else:
-                        stats["wrong"] += [bm]
-                except Exception as e:
-                    _print_error_report("Solver failed", e, bm, p)
-                    stats["sfail"] += [bm]

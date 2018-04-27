@@ -37,12 +37,21 @@ def plot_model(m):
     g = model_to_nx_graph(m)
     return get_plot_div(g)
 
-def iplot_model(m):
-    offline.iplot(model_to_fig(m))
+layout_fns = {
+    'circular' : nx.circular_layout,
+    'kk' : nx.kamada_kawai_layout,
+    'random' : nx.random_layout,
+    'shell' : nx.shell_layout,
+    'spectral' : nx.spectral_layout,
+    'spring' : nx.spring_layout,
+}
 
-def model_to_fig(m):
+def iplot_model(m, graph_layout = 'spring'):
+    offline.iplot(model_to_fig(m, graph_layout))
+
+def model_to_fig(m, graph_layout = 'spring'):
     g = model_to_nx_graph(m)
-    return nx_graph_to_plotly_fig(g)
+    return nx_graph_to_plotly_fig(g, graph_layout)
 
 def model_to_nx_graph(m):
     if isinstance(m, graph.Graph):
@@ -50,27 +59,38 @@ def model_to_nx_graph(m):
     else:
         gm = checks.graph_from_smt_model(m)
 
-    label_dict = {v : [] for v in gm.val}
+    var_dict = {v : [] for v in gm.val}
     for x, v in gm.s.items():
-        label_dict[v].append(x)
+        var_dict[v].append(x)
 
     g = nx.DiGraph()
     for v in gm.val:
-        g.add_node(v, label=', '.join(label_dict[v]))
+        data = gm.succ_of(v, consts.FLD_DATA)
+        if data is not None:
+            labels = [str(data)]
+        else:
+            labels = []
+        xs = var_dict[v]
+        if xs:
+            labels.append(' '.join(xs))
+        label = ' / '.join(labels)
+        g.add_node(v, label=label)
     for (src,lbl), trg in gm.ptr.items():
         if lbl != consts.FLD_DATA:
             g.add_edge(src, trg, label=lbl)
     return g
 
-def get_plot_div(g, graph_layout = nx.fruchterman_reingold_layout):
-    return offline.plot(nx_graph_to_plotly_fig(g),
+def get_plot_div(g, graph_layout = 'spring'):
+    return offline.plot(nx_graph_to_plotly_fig(g, graph_layout),
                         show_link = False,
                         auto_open = False,
                         include_plotlyjs = False,
                         output_type = 'div')
 
-def nx_graph_to_plotly_fig(g, graph_layout = nx.fruchterman_reingold_layout):
-    pos = graph_layout(g)
+def nx_graph_to_plotly_fig(g, graph_layout = 'spring'):
+    layout_fn = layout_fns[graph_layout]
+    pos = layout_fn(g)
+    print(pos)
     x_nodes = [pos[k][0] for k in g.nodes()]
     y_nodes = [pos[k][1] for k in g.nodes()]
     labels = [g.node[k]['label'] for k in g.nodes()]
@@ -94,7 +114,7 @@ def nx_graph_to_plotly_fig(g, graph_layout = nx.fruchterman_reingold_layout):
         src, trg = edge[0], edge[1]
         src_pos = [pos[src][i] for i in (0,1)]
         trg_pos = [pos[trg][i] for i in (0,1)]
-        mid_pos = [(pos[src][i] + (pos[trg][i] - pos[src][i]) / 2) for i in (0,1)]
+        mid_pos = [(pos[src][i] + (pos[trg][i] - pos[src][i]) * 3 / 4) for i in (0,1)]
         add_edge(g[src][trg]['label'], src_pos, mid_pos, True)
         add_edge(g[src][trg]['label'], mid_pos, trg_pos, False)
 
@@ -109,7 +129,7 @@ def nx_graph_to_plotly_fig(g, graph_layout = nx.fruchterman_reingold_layout):
                        mode='lines+text',
                        text=lbl,
                        textposition='top',
-                       line=go.Line(color=col, width=4),
+                       line=go.Line(color=col, width=2),
                        hoverinfo='none'
             ),
            go.Scatter(x=x_trg_edges[lbl],
