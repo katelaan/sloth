@@ -45,7 +45,7 @@ def canonical_graph(m, ignore_null = False):
 def is_aux_var(x):
     return str(x).startswith(consts.AUX_VAR_PREFIX)
 
-def graph_from_smt_model(m, ignore_null = False, skip_fn = is_aux_var):
+def graph_from_smt_model(m, ignore_null = False, skip_fn = is_aux_var, with_tree_edges_to_null = False):
     """Construct a graph model from an SMT model.
 
     >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null)); m = model(sl_expr)
@@ -59,42 +59,55 @@ def graph_from_smt_model(m, ignore_null = False, skip_fn = is_aux_var):
     ptrs = {}
     stack = {}
     for s, sm in m.struct_models.items():
+        skip_null_edges = (s.unqualified_name == consts.TREE_PRED
+                           and not with_tree_edges_to_null)
+
         vals.update(map(lambda l: l.as_long(), sm.locs))
-        if not ignore_null:
-            null = sm.null()
-            try:
-                null_val = null.as_long()
-            except AttributeError:
-                # Sometimes z3 may not interpret null (if it's not relevant for the query)
-                # That's fine, we'll not add null to the graph then.
-                pass
-            else:
+
+        null = sm.null()
+        try:
+            null_val = null.as_long()
+        except AttributeError:
+            # Sometimes z3 may not interpret null (if it isn't relevant for the query)
+            # That's fine, we'll not add null to the graph then.
+            null_val = None
+        else:
+            if not ignore_null and not skip_null_edges:
                 # Null is in the model => Add to graph
                 vals.add(null_val)
                 stack[str(s.null)] = null_val
+            else:
+                vals.discard(null_val)
 
+        # Add every (non-null) constant to the stack
+        # Null was already dealt with above
         for c in sm.loc_consts():
+            if str(c) == str(s.null):
+                continue
             v = m.val_of(c).as_long()
             #print('{} : {}'.format(c, v))
             stack[str(c)] = v
             # Add all pointers for all fields of the structure
-            for fld in s.fields:
-                fn = sm.heap_fn(fld)
-                if fn.is_defined():
-                    for loc in sm.locs:
-                        if sm.is_alloced(loc, fld):
-                            #print('{} : {} -[{}]> {}'.format(loc, type(loc).__name__, fld, fn(loc)))
-                            src = loc.as_long()
-                            #print('{} {}'.format(loc, fn(loc)))
-                            try:
-                                trg = fn(loc).as_long()
-                            except AttributeError:
-                                raise Exception("During lookup of {} : {} in {}: Can't convert {} : {} to long".format(loc, type(loc).__name__, fn, fn(loc), type(fn(loc)).__name__)) from None
-                            else:
-                                ptrs[(src, fld)] = trg
+
+        # Add all pointers by looping over all fields and all locations
+        for fld in s.fields:
+            fn = sm.heap_fn(fld)
+            if fn.is_defined():
+                for loc in sm.locs:
+                    if sm.is_alloced(loc, fld):
+                        #print('{} : {} -[{}]> {}'.format(loc, type(loc).__name__, fld, fn(loc)))
+                        src = loc.as_long()
+                        #print('{} {}'.format(loc, fn(loc)))
+                        try:
+                            trg = fn(loc).as_long()
+                        except AttributeError:
+                            raise Exception("During lookup of {} : {} in {}: Can't convert {} : {} to long".format(loc, type(loc).__name__, fn, fn(loc), type(fn(loc)).__name__)) from None
                         else:
-                            #print('{}: {} not alloced'.format(loc, fld))
-                            pass
+                            if (not skip_null_edges) or trg != null_val:
+                                ptrs[(src, fld)] = trg
+                    else:
+                        #print('{}: {} not alloced'.format(loc, fld))
+                        pass
 
     # Add data evaluation to the stack
     data = {}

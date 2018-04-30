@@ -276,8 +276,8 @@ def z3_to_py(expr):
     else:
         return expr.as_long()
 
-def model_to_graph(model, ignore_null = False):
-    return checks.graph_from_smt_model(model, ignore_null = ignore_null)
+def model_to_graph(model, with_tree_edges_to_null = False):
+    return checks.graph_from_smt_model(model, with_tree_edges_to_null = with_tree_edges_to_null)
     #return checks.canonical_graph(model, ignore_null = ignore_null)
 
 def stats(mod = None):
@@ -290,7 +290,7 @@ def stats(mod = None):
 
 iplot_initialized = False
 
-def iplot(mod, layout = None):
+def iplot(mod, layout = None, draw_tree_edges_to_null = False):
     global iplot_initialized
     if not iplot_initialized:
         from plotly.offline import init_notebook_mode
@@ -299,9 +299,9 @@ def iplot(mod, layout = None):
 
     if isinstance(mod, model_module.SmtModel) or isinstance(mod, graph.Graph):
         if layout is not None:
-            plotter.iplot_model(mod, graph_layout = layout)
+            plotter.iplot_model(mod, graph_layout = layout, draw_tree_edges_to_null = draw_tree_edges_to_null)
         else:
-            plotter.iplot_model(mod)
+            plotter.iplot_model(mod, draw_tree_edges_to_null = draw_tree_edges_to_null)
     else:
         raise ApiException("Cannot plot {}".format(type(mod).__name__))
 

@@ -33,8 +33,8 @@ _html_template = """<!DOCTYPE html>
 </html>
 """
 
-def plot_model(m):
-    g = model_to_nx_graph(m)
+def plot_model(m, draw_tree_edges_to_null = False):
+    g = model_to_nx_graph(m, draw_tree_edges_to_null = draw_tree_edges_to_null)
     return get_plot_div(g)
 
 layout_fns = {
@@ -46,18 +46,18 @@ layout_fns = {
     'spring' : nx.spring_layout,
 }
 
-def iplot_model(m, graph_layout = 'spring'):
-    offline.iplot(model_to_fig(m, graph_layout))
+def iplot_model(m, graph_layout = 'spring', draw_tree_edges_to_null = False):
+    offline.iplot(model_to_fig(m, graph_layout, draw_tree_edges_to_null = draw_tree_edges_to_null))
 
-def model_to_fig(m, graph_layout = 'spring'):
-    g = model_to_nx_graph(m)
+def model_to_fig(m, graph_layout = 'spring', draw_tree_edges_to_null = False):
+    g = model_to_nx_graph(m, draw_tree_edges_to_null = draw_tree_edges_to_null)
     return nx_graph_to_plotly_fig(g, graph_layout)
 
-def model_to_nx_graph(m):
+def model_to_nx_graph(m, draw_tree_edges_to_null = False):
     if isinstance(m, graph.Graph):
         gm = m
     else:
-        gm = checks.graph_from_smt_model(m)
+        gm = checks.graph_from_smt_model(m, with_tree_edges_to_null = draw_tree_edges_to_null)
 
     var_dict = {v : [] for v in gm.val}
     for x, v in gm.s.items():
