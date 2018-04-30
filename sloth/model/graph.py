@@ -257,7 +257,7 @@ variable.
         if isinstance(v, str):
             return self.s[v]
         else:
-            assert isinstance(v, int)
+            assert isinstance(v, int), utils.wrong_type(v)
             return v
 
     def reach(self, fields, src, trg):

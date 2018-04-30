@@ -66,7 +66,7 @@ from . import slparser, wrapper, slapi
 from . import z3api
 from .backend import LambdaBackend, QuantifiedBackend, struct
 from .encoder import encoder, constraints
-from .model import model as model_module, checks, plotter
+from .model import model as model_module, checks, graph, plotter
 from .utils import logger, utils
 from .z3api import z3utils
 
