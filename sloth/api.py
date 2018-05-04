@@ -73,6 +73,8 @@ from .z3api import z3utils
 class ApiException(utils.SlothException):
     """Raised when the API is used in an unintended way."""
 
+NO_MODEL_AVAILABLE = 'Unsatisfiable => no model available'
+
 ###############################################################################
 # Backend activation / management
 ###############################################################################
@@ -200,6 +202,7 @@ def solve(input, override_bound = None):
     if z3api.is_sat(e.to_z3_expr()):
         return e.label_model(z3api.model())
     else:
+        print(NO_MODEL_AVAILABLE)
         return None
 
 def show_evaluation_steps(input, export_file = None, override_bound = None):
@@ -255,6 +258,7 @@ def model(input, override_bound = None):
     if isinstance(input, constraints.Z3Input):
         if is_sat_encoding(input):
             return current_model(input.all_consts(), input.structs)
+        print(NO_MODEL_AVAILABLE)
         return None
     else:
         return solve(input, override_bound)
