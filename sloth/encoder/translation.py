@@ -11,10 +11,10 @@ constraints (e.g. the Delta formula from the IJCAR paper.)
    from sloth import *
    from sloth.slbuilders import *
    from sloth.model import checks
-   from sloth.model.graph import Graph, print_all_named_ptrs
+   from sloth.model.graph import Graph, canonicalize, print_all_named_ptrs
    from sloth.encoder.translation import *
 
->>> eval_ = lambda *args, **kwargs: checks.canonicalize(evaluate_to_graph(*args, **kwargs))
+>>> eval_ = lambda *args, **kwargs: canonicalize(evaluate_to_graph(*args, with_tree_edges_to_null = True, **kwargs))
 >>> x, y, z = sl.list.locs('x y z'); t, u, v, w = sl.tree.locs('t u v w'); d, e, f = z3.Ints('d e f')
 
 Note that for some inputs that don't explicitly reference null, it

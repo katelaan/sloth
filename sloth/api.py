@@ -259,7 +259,7 @@ def model(input, override_bound = None):
     else:
         return solve(input, override_bound)
 
-def evaluate_to_graph(input, ignore_null = False, override_bound = None):
+def evaluate_to_graph(input, ignore_null = False, with_tree_edges_to_null = False, override_bound = None):
     """
     >>> x, y, z = sl.list.locs('x y z'); sl_expr = sl.sepcon(sl.list.pointsto(x, y), sl.list.pointsto(y, z), sl.list.pointsto(z, sl.list.null))
     >>> evaluate_to_graph(sl_expr)
@@ -267,7 +267,7 @@ def evaluate_to_graph(input, ignore_null = False, override_bound = None):
 
     """
     m = solve(input, override_bound)
-    return model_to_graph(m, ignore_null)
+    return model_to_graph(m, ignore_null = ignore_null, with_tree_edges_to_null = with_tree_edges_to_null)
 
 def z3_to_py(expr):
     """Converts given z3 literal into python's built-in numbers."""
@@ -276,9 +276,8 @@ def z3_to_py(expr):
     else:
         return expr.as_long()
 
-def model_to_graph(model, with_tree_edges_to_null = False):
-    return checks.graph_from_smt_model(model, with_tree_edges_to_null = with_tree_edges_to_null)
-    #return checks.canonical_graph(model, ignore_null = ignore_null)
+def model_to_graph(model, ignore_null = False, with_tree_edges_to_null = False):
+    return checks.graph_from_smt_model(model, ignore_null = ignore_null, with_tree_edges_to_null = with_tree_edges_to_null)
 
 def stats(mod = None):
     """Print statistics about the given :class:`model.SmtModel`."""
