@@ -14,6 +14,7 @@ import z3
 
 from .. import consts, config
 from ..utils import utils
+from ..z3api import z3utils
 from . import backends
 from . import symbols
 
