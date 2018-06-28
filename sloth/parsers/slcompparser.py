@@ -45,7 +45,14 @@ def test_parse_all_benchmarks():
         print('All tests succeeded')
 
 def main(argv):
-    parse_file(argv[1])
+    print(argv)
+    try:
+        bm = argv[1]
+    except:
+        test_parse_all_benchmarks()
+    else:
+        visited = parse_file(bm)
+        print(visited)
 
 if __name__ == '__main__':
     main(sys.argv)

@@ -97,7 +97,7 @@ def _configure_solver(args):
     #     return None
     return solver_config
 
-if __name__ == '__main__':
+if __name__ == '__main__':x
     parser = arg_parser()
     args = parser.parse_args()
     _configure_logger(args.verbose, args.quiet)
