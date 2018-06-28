@@ -1,78 +1,13 @@
-# Generated from SLComp18.g4 by ANTLR 4.7.1
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .SLComp18Parser import SLComp18Parser
 else:
     from SLComp18Parser import SLComp18Parser
 
-# This class defines a complete generic visitor for a parse tree produced by SLComp18Parser.
-
-from collections import namedtuple as nt
 from functools import partial
 from itertools import groupby
 
-# Dummy -> not needed, just return None
-#CmdTypeWrapper = nt('CmdTypeWrapper', 'ct') # Not needed, just pass on the commands
-# Args -> not needed, just return List
-
-# Just return the values?
-#Decimal = nt('Decimal', 'd')
-#Numeral = nt('Numeral', 'i')
-#StrVal = nt('StrVal', 's')
-Constant = nt('Constant', 'c')
-
-Symbol = nt('Symbol', 'str')
-IndexedIdentifier = nt('IndexedIdentifier', 's ixs')
-QualifiedIdentifier = nt('QualifiedIdentifier', 'id sort')
-
-Keyword = nt('Keyword', 'str')
-AttributeValue = nt('AttributeValue', 'v')
-Attribute = nt('Attribute', 'kw av')
-
-SortDecl = nt('SortDecl', 'name arity')
-SortedVar = nt('SortedVar', 'name sort')
-
-Sort = nt('Sort', 'symbol')
-Selector = nt('Selector', 'sel sort')
-ConstructorDecl = nt('ConstructorDecl', 'name sels params')
-DataTypeDecl = nt('DataTypeDecl', 'sort constructors')
-# DataTypes -> not needed, just return list
-
-HeapDecl = nt('HeapDecl', 'mapping')
-
-ConstDecl = nt('ConstDecl', 'name sort')
-FunDecl = nt('FunDecl', 'name args ret')
-FunDef = nt('FunDef', 'decl term')
-#FunDefs -> not needed, just return list
-
-Exists = nt('Exists', 'vars term')
-
-Assert = nt('Assert', 'term')
-Task = nt('Task', 'task args') # check-sat, check-unsat, get-model
-
-Meta = nt('Meta', 'type content') # set-logic, set-info
-
-class Script:
-    def __init__(self,
-                 sorts = [],
-                 types = [],
-                 heap = None,
-                 consts = [],
-                 funs = [],
-                 asserts = [],
-                 meta = [],
-                 tasks = []):
-        self.sorts = sorts
-        self.types = types
-        self.heap = heap
-        self.consts = consts
-        self.funs = funs
-        self.asserts = asserts
-        self.meta = meta
-        self.tasks = tasks
-
-    def __repr__(self):
-        return 'Script(sorts = {!r},\n  types = {!r},\n  heap = {!r},\n  consts = {!r},\n  funs = {!r},\n  asserts = {!r},\n  meta = {!r},\n  tasks = {!r})'.format(self.sorts, self.types, self.heap, self.consts, self.funs, self.asserts, self.meta, self.tasks)
+from .representation import *
 
 def cmd_not_supported(cmd, args):
     raise NotImplementedError('No support for {}'.format(cmd))
@@ -82,8 +17,8 @@ def no_support(cmd):
 
 def declare_datatypes(args):
     it = groupby(args, key = lambda arg: isinstance(arg, SortDecl))
-    decls = list(next(it))
-    terms = list(next(it))
+    decls = list(next(it)[1])
+    terms = list(next(it)[1])
     assert len(decls) == len(terms)
     return [DataTypeDecl(*pair) for pair in zip(decls, terms)]
 
@@ -95,8 +30,8 @@ def declare_heap(args):
 
 def define_funs_rec(args):
     it = groupby(args, key = lambda arg: isinstance(arg, FunDecl))
-    decls = list(next(it))
-    terms = list(next(it))
+    decls = list(next(it)[1])
+    terms = list(next(it)[1])
     assert len(decls) == len(terms)
     return [FunDef(*pair) for pair in zip(decls, terms)]
 
@@ -104,7 +39,7 @@ cmdTypeToCmd = {
     'assert': lambda args: Assert(args[0]),
     'check-sat': lambda _: Task('check-sat', []),
     'check-sat-assuming': no_support('check-sat-assuming'),
-    'check-sat': lambda _: Task('check-unsat', []),
+    'check-unsat': lambda _: Task('check-unsat', []),
     'declare-const': lambda args: ConstDecl(*args),
     'declare-fun': no_support('declare-fun'),
     'declare-datatype': lambda args: [SortDecl(args[0], 0), args[1]],
@@ -310,7 +245,7 @@ class SLComp18Visitor(ParseTreeVisitor):
         #child = ctx.getChild(1)
         #if child:
         try:
-            child = cts.getChild(1)
+            child = ctx.getChild(1)
         except:
             return self.visitChildren(ctx)
         else:

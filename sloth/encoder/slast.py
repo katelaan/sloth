@@ -320,6 +320,14 @@ class BinOp(Op):
         yield self.left
         yield self.right
 
+    @classmethod
+    def fromList(cls, ls):
+        assert len(ls) >= 2
+        if len(ls) == 2:
+            return cls(*ls)
+        else:
+            return cls(ls[0], cls.fromList(ls[1:]))
+
 class SepCon(BinOp):
     """A binary separating conjunction.
 
@@ -333,6 +341,7 @@ class SepCon(BinOp):
 
     def __init__(self, left, right):
         super().__init__(left, right)
+
 
 class SlAnd(BinOp):
 
