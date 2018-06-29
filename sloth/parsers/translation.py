@@ -7,25 +7,37 @@ from ..api import sl
 class UnsupportedException(Exception):
     pass
 
-def translate(script):
-    print(script)
+def translate(script, filename):
+    print('Translating {}...'.format(filename))
+    #print(script)
 
     # For now we assume that acyclic list segments are the only predicate!
     try:
+        stat = status(script)
+        print('Status: {}'.format(stat))
+
         existential_dict = {}
         conjuncts = [convert(assertion.term, existential_dict = existential_dict)
                      for assertion in script.asserts]
-        print('Existentials: {}'.format(existential_dict))
+        #print('Existentials: {}'.format(existential_dict))
         print('Conjuncts:\n - {}'.format('\n - '.join([str(c) for c in conjuncts])))
         if len(conjuncts) == 1:
-            return conjuncts[0]
+            return (stat, conjuncts[0])
         elif len(conjuncts) == 2:
-            return SlAnd(*conjuncts)
+            return (stat, SlAnd(*conjuncts))
         else:
             raise Exception("Currently no support for >= 3 top-level assertions.")
     except UnsupportedException as e:
         print(e.args)
         return None
+
+def status(script):
+    # Extract status from something like:
+        # Meta(type='set-info', content=[Attribute(kw=Keyword(str=':status'), av=AttributeValue(v=Symbol(str='unsat')))])
+    status_it = (info for info in script.meta
+                 if info.type == 'set-info'
+                 if info.content[0].kw.str == ':status')
+    return next(status_it).content[0].av.v.str
 
 def fail(op, args):
     raise UnsupportedException('No support for {}'.format(op))
@@ -43,6 +55,18 @@ def qualIdentToPtrTerm(qi):
             assert qi.id.str == 'nil'
             return sl.list.null
 
+SpatialTypes = {SepCon, PointsToSingleField, SpatialEq, PredCall}
+
+def convertAnd(args, under_negation, existential_dict):
+    converted = [convert(arg, under_negation, existential_dict) for arg in args]
+    if all((type(arg) in SpatialTypes for arg in converted)):
+        # Symbolic heap case => Rewrite conjunction into separating conjunction to ensure the desired semantics
+        return SepCon.fromList(converted)
+    else:
+        print('That case: {}'.format([type(arg) for arg in converted]))
+        # Boolean closure case => Treat as and
+        return SlAnd.fromList(converted)
+
 def convert(assertion, under_negation = False, existential_dict = {}):
     t = type(assertion)
     # TODO: Move pure formulas below sepcon?
@@ -51,7 +75,7 @@ def convert(assertion, under_negation = False, existential_dict = {}):
         fn = assertion[0].str
         convert_fn = {
             'or': lambda args: SlOr.fromList([convert(arg, under_negation, existential_dict) for arg in args]),
-            'and': lambda args: SlAnd.fromList([convert(arg, under_negation, existential_dict) for arg in args]),
+            'and': lambda args: convertAnd(args, under_negation, existential_dict),
             'not': lambda args: SlNot(convert(args[0], under_negation, existential_dict)),
             'sep': lambda args: SepCon.fromList([convert(arg, under_negation, existential_dict) for arg in args]),
             'wand': lambda args: fail('wand', args),
@@ -66,17 +90,23 @@ def convert(assertion, under_negation = False, existential_dict = {}):
         assert assertion.s.str == 'emp', 'Unsupported indexed identifier {}'.format(assertion)
         # No direct support for emp => return (null = null) instead
         return SpatialEq(sl.list.struct, False, sl.list.null, sl.list.null)
+    elif t == QualifiedIdentifier:
+        assert assertion.id.str == 'emp', 'Unsupported qualified identifier {}'.format(assertion)
+        # No direct support for emp => return (null = null) instead
+        return SpatialEq(sl.list.struct, False, sl.list.null, sl.list.null)
     elif t == Exists:
-        if under_negation:
-            raise UnsupportedException('No support for universal quantifiers')
-        # Detect existential quantifiers inside of negation: We don't have support for universal quantifiers, so we'd have to drop those!
-        else:
-            for v in assertion.vars:
-                if v in existential_dict:
-                    raise UnsupportedException('No support for reuse of bound variable identifiers')
-                else:
-                    existential_dict[v] = v
-            return convert(assertion.term, under_negation, existential_dict)
+        # All benchmarks in the divisions we participate in are quantifier free. No support necessary.
+        raise UnsupportedException('No support for quantifiers')
+        # if under_negation:
+        #     raise UnsupportedException('No support for universal quantifiers')
+        # # Detect existential quantifiers inside of negation: We don't have support for universal quantifiers, so we'd have to drop those!
+        # else:
+        #     for v in assertion.vars:
+        #         if v in existential_dict:
+        #             raise UnsupportedException('No support for reuse of bound variable identifiers')
+        #         else:
+        #             existential_dict[v] = v
+        #     return convert(assertion.term, under_negation, existential_dict)
 
     else:
         raise UnsupportedException('No support for {} of type {}'.format(assertion, t))

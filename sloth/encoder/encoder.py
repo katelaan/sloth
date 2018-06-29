@@ -26,8 +26,13 @@ from . import slast
 from . import translation
 
 def encode_sl_expr(sl, sl_expr, override_bound = None):
-    structs = z3utils.structs_in_expr(sl, sl_expr)
-    ast = astbuilder.ast(structs, sl_expr)
+    if isinstance(sl_expr, slast.SlAst):
+        structs = [sl.list.struct]
+        ast = sl_expr
+    else:
+        assert isinstance(sl_expr, z3.ExprRef)
+        structs = z3utils.structs_in_expr(sl, sl_expr)
+        ast = astbuilder.ast(structs, sl_expr)
     contains_call = astutils.contains_calls(ast)
 
     bounds = b.compute_size_bounds(ast)

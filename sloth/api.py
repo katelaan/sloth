@@ -124,6 +124,8 @@ def parse(string):
     return ParseResult(parsed, backend)
 
 def _ensure_parsed(input):
+    if isinstance(input, encoder.slast.SlAst):
+        return ParseResult(input, backend)
     if isinstance(input, z3.ExprRef):
         return ParseResult(input, backend)
     elif isinstance(input, ParseResult):
