@@ -160,7 +160,8 @@ class StructApi:
             setattr(self, consts.SEG_SUFFIX[1:] + suffix,
                     functools.partial(self._segment_predicate, i+1))
         # Data predicates
-        setattr(self, consts.DATA_PRED_SUFFIX[1:], DataApi(struct))
+        self._data_api = DataApi(struct)
+        setattr(self, consts.DATA_PRED_SUFFIX[1:], self._data_api)
 
     def __call__(self, *args):
         """Build a predicate call for the underlying structure.
@@ -168,7 +169,31 @@ class StructApi:
         :param: args: Parameters for the predicate call (strings or consts)
 
         :rtype: :class:`z3.ExprRef`"""
-        return self.struct.predicate()(*self._const(args))
+        locs, datapred = self._process_args(args)
+
+        if not datapred:
+            if len(locs) == 1:
+                return self.struct.predicate()(*self._const(args))
+            else:
+                return self.struct.segment_predicate(len(locs)-1)(*self._const(args))
+        else:
+            fld, constraint = next(iter(datapred.items()))
+            return self._data_api(fld, constraint, *locs)
+
+
+    def _process_args(self, args):
+        locs = []
+        pred = None
+        for arg in args:
+            try:
+                locs.append(_constify(self.struct, arg))
+            except:
+                if not isinstance(arg, dict):
+                    raise Exception("Can't process argument {}".format(arg))
+                if pred is not None or len(arg) > 1:
+                    raise Exception("Can't specify multiple predicate parameters at the same time")
+                pred = arg
+        return locs, pred
 
     def loc(self, arg):
         """Returns a location constant for the given argument.
@@ -219,6 +244,9 @@ class StructApi:
         """
         return tuple(_fp_constify(self.struct, arg) for arg in args)
 
+    def pto(self, *args):
+        return self.pointsto(*args)
+
     def pointsto(self, *args):
         "The points-to predicate for the underlying structure."
         return self.struct.points_to_predicate()(*self._const(args))
@@ -265,6 +293,14 @@ class DataApi:
 
     def _data_predicate(self, f, n, *args):
         return self.struct.data_predicate(f, n)(args[0], *self._const(args[1:]))
+
+    def __call__(self, fld, constraint, *args):
+        assert len(args)>0, \
+            'Received {} and {} but no args'.format(fld, constraint)
+        if fld in ('unary','universal','all','forall'):
+            return self._unary_data_predicate(len(args)-1, constraint, *args)
+        else:
+            return self._data_predicate(fld, len(args)-1, constraint, *args)
 
     # TODO: Remove code duplication wrt StructApi
     def _const(self, args):
