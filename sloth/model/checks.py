@@ -110,18 +110,19 @@ def graph_from_smt_model(m, ignore_null = False, skip_fn = is_aux_var, with_tree
                     else:
                         pass
 
+        # TODO: Add a flag to activate this?
         # (Very inefficiently) delete all vars that don't occur in the graph
-        to_delete = []
-        for c, v in stack.items():
-            match = False
-            for (src, _), trg in ptrs.items():
-                if src == v or trg == v:
-                    match = True
-                    break
-            if not match:
-                to_delete.append(c)
-        for c in to_delete:
-            del stack[c]
+        # to_delete = []
+        # for c, v in stack.items():
+        #     match = False
+        #     for (src, _), trg in ptrs.items():
+        #         if src == v or trg == v:
+        #             match = True
+        #             break
+        #     if not match:
+        #         to_delete.append(c)
+        # for c in to_delete:
+        #     del stack[c]
 
     # Add data evaluation to the stack
     data = {}
