@@ -53,7 +53,7 @@ def graph_from_smt_model(m, ignore_null = False, skip_fn = is_aux_var, with_tree
     True
 
     """
-    # TODO: Split into smaller parts
+    # TODO: Split this monster of a method into smaller parts
 
     vals = set()
     ptrs = {}
@@ -89,6 +89,8 @@ def graph_from_smt_model(m, ignore_null = False, skip_fn = is_aux_var, with_tree
             stack[str(c)] = v
             # Add all pointers for all fields of the structure
 
+        #null_reachable = False
+
         # Add all pointers by looping over all fields and all locations
         for fld in s.fields:
             fn = sm.heap_fn(fld)
@@ -104,10 +106,22 @@ def graph_from_smt_model(m, ignore_null = False, skip_fn = is_aux_var, with_tree
                             raise Exception("During lookup of {} : {} in {}: Can't convert {} : {} to long".format(loc, type(loc).__name__, fn, fn(loc), type(fn(loc)).__name__)) from None
                         else:
                             if (not skip_null_edges) or trg != null_val:
-                                ptrs[(src, fld)] = trg
+                               ptrs[(src, fld)] = trg
                     else:
-                        #print('{}: {} not alloced'.format(loc, fld))
                         pass
+
+        # (Very inefficiently) delete all vars that don't occur in the graph
+        to_delete = []
+        for c, v in stack.items():
+            match = False
+            for (src, _), trg in ptrs.items():
+                if src == v or trg == v:
+                    match = True
+                    break
+            if not match:
+                to_delete.append(c)
+        for c in to_delete:
+            del stack[c]
 
     # Add data evaluation to the stack
     data = {}

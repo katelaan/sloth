@@ -36,7 +36,7 @@ _html_template = """<!DOCTYPE html>
 </html>
 """
 
-def plot_model(m, draw_tree_edges_to_null = False):
+def plot_model(m, graph_layout = 'forest', draw_tree_edges_to_null = False):
     g, pos = nx_graph_and_layout(m,
                                  graph_layout = graph_layout,
                                  draw_tree_edges_to_null = draw_tree_edges_to_null)
@@ -54,6 +54,7 @@ def model_to_fig(m, graph_layout = 'forest', draw_tree_edges_to_null = False):
 def nx_graph_and_layout(m, graph_layout = 'forest', draw_tree_edges_to_null = False):
     if not isinstance(m, graph.Graph):
         m = checks.graph_from_smt_model(m, with_tree_edges_to_null = draw_tree_edges_to_null)
+    #print('Graph model:\n{}'.format(m))
     g = model_to_nx_graph(m, draw_tree_edges_to_null = draw_tree_edges_to_null)
     pos = resolve_layout(graph_layout, m, g)
     return g, pos

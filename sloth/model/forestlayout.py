@@ -35,8 +35,11 @@ def var_reachability(gm, sort = True):
     else:
         vs = sorted(gm.s)
 
+    #print('All variables: {}'.format(vs))
+
     for x in vs:
         #print('Handling {}'.format(x))
+        reach[x] = set()
         xv = gm.resolve(x)
         if xv in visited:
             continue
@@ -48,13 +51,14 @@ def var_reachability(gm, sort = True):
             for node in cache:
                 labeling_vs = list(gm.vars_at(node))
                 for reach_v in labeling_vs:
-                    reach.setdefault(x, set()).add(reach_v)
+                    #reach.setdefault(x, set()).add(reach_v)
+                    reach[x].add(reach_v)
 
                 if node not in visited:
                     new_cache.extend(gm.successors(node, FLDS))
 
             visited.update(cache)
-            cache = new_cache #[n for n in new_cache if n not in visited]
+            cache = new_cache
 
     return reach
 
