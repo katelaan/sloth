@@ -2,7 +2,7 @@ import collections
 
 import z3
 
-from .. import consts
+from .. import consts, config
 from ..encoder import encoder # TODO: Remove dependency on encoder
 from ..utils import logger
 from ..utils import utils
@@ -139,8 +139,9 @@ class SmtModel:
 
     """
 
-    def __init__(self, z3_model, const_registry, structs, filter_aux_vars = True):
+    def __init__(self, z3_model, const_registry, structs):
         self.z3_model = z3_model
+        filter_aux_vars = not config.debug
 
         # If the global FP vars are defined, we limit function
         # interpretation to these footprints. This reflects the SL
@@ -282,7 +283,7 @@ class SmtModel:
             return self.struct_models[struct].loc_consts()
 
     def fp_consts(self, struct = None):
-        """Return list of all footptins consts in the given structure.
+        """Return list of all footprint consts in the given structure.
 
         If no structure is given, return list of all footprint
         constants in the entire model

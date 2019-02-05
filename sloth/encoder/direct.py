@@ -789,7 +789,7 @@ class DirectEncoding:
         exprs = [
             self.stops_distinct(),
             c.Implies(self.is_stop_node(root),
-                      z3.And([root == s for s in stops]),
+                      c.And(*[root == s for s in stops]),
                       description = "If the root is a stop node, it's equal to all stop nodes"),
             c.Implies(c.Not(self.is_stop_node(root)), self.stops_occur(),
                       description = "If the root isn't a stop node then all stop nodes occur"),
@@ -894,11 +894,27 @@ class DirectEncoding:
         return c.And(*exprs,
                      description = "The root {} and stop points {} aren't allocated in other structs".format(root, stops))
 
-
-    def root_maps_onto_aux_vars(self):
+    def no_loop_on_null_node(self):
+        root = self.pred_call.root
         return c.as_constraint(
-            self.xs_set().contains(self.pred_call.root),
-            description = 'The predicate root is among {}...{}'.format(self.x(0), self.x(self.n - 1)))
+            z3.Not(self.r(self.n)(self.null, self.null)),
+            description = "Null can't be reachable from itself"
+        )
+
+    # def no_loop_on_root_node(self):
+    #     root = self.pred_call.root
+    #     return c.as_constraint(
+    #         z3.Not(self.r(self.n)(root, root)),
+    #         description = "The root {} can't be reachable from itself".format(self.pred_call.root)
+    #     )
+
+    # def no_loop_on_stop_node(self):
+    #     root = self.pred_call.root
+    #     return c.Implies(
+    #         self.is_stop_node(root),
+    #         z3.Not(self.r(self.n)(root, root)),
+    #         description = "If {} is a stop node, it can't be reachable from itself".format(self.pred_call.root)
+    #     )
 
     def struct_encoding(self, Y):
         assert isinstance(Y, shared.FPVector), utils.wrong_type(Y)
@@ -924,7 +940,8 @@ class DirectEncoding:
         cs_b = [self.reach(),
                 self.footprint(),
                 self.defineY(Y),
-                self.root_maps_onto_aux_vars()
+                self.no_loop_on_null_node()
+                #self.no_loop_on_stop_node()
         ]
         B = c.And(
             *cs_b, description = 'Footprint encoding of list({}, {}) of size {}'.format(root, stops, self.n, preds)

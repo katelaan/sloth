@@ -68,7 +68,7 @@ def dump_encodings(io_config, solver_config, parsed, result_encoding):
     """
     structs = solver_config.structs
     file_ = config.ENCODING_FILE_PREFIX + '.smt2'
-    logger.info('Writing SMTLIB2 encoding to file {}'.format(file_))
+    print('Writing SMTLIB2 encoding to file {}'.format(file_))
     try:
         result_encoding.to_file(file_)
     except:
@@ -125,11 +125,7 @@ def solve(solver_config, parsed):
             print('No encoder specified.')
             sys.exit(1)
 
-        if not result_state.is_success():
-            logger.info('Could NOT prove satisfiability')
-            return None
-        else:
-            return result_state
+        return result_state
     else:
         return None
 
@@ -142,8 +138,11 @@ def postprocess(io_config, solver_config, parsed, result_state):
 
     """
     if io_config.dump_smt:
-        # Dump SMT encodings regardless of success
-        dump_encodings(io_config, solver_config, parsed, result_state.encoding)
+        if result_state is None:
+            print('No encoding computed => ignore request to dump SMT encoding.')
+        else:
+            # Dump SMT encodings regardless of success
+            dump_encodings(io_config, solver_config, parsed, result_state.encoding)
     if result_state and result_state.model is not None:
         adapter = result_state.model
         # Print and/or plot model in case of success
@@ -185,7 +184,7 @@ def run(io_config, solver_config, batch_mode = False):
             timing.log(timing.EventType.Error)
             _handle_exception(io_config, e)
         else:
-            if result is None:
+            if result is None or not result.is_success():
                 timing.log(timing.EventType.Unsat)
             else:
                 timing.log(timing.EventType.Sat)
