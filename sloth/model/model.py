@@ -182,7 +182,10 @@ class SmtModel:
             self.data = dict()
 
     def _defines_fps(self, z3_model, structs):
-        sort = next(iter(structs)).fp_sort
+        try:
+            sort = next(iter(structs)).fp_sort
+        except:
+            sort = None
 
         flds = utils.flatten(struct.fields for struct in structs)
         for fld in flds:
